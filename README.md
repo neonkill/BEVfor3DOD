@@ -13,11 +13,7 @@ Computer Vision for Autonomous Driving
         │   ├── data_module.py
         │   ├── augmentations.py
         │   ├── datasets
-        │       ├── nuscenes_depth.py
-        │       ├── nuscenes_multiple.py
-        │       ├── nuscenes_object_detection.py
-        │       ├── nuscenes_mapview_segmentation.py
-        │       ├── nuscenes_semantic_segmentation.py
+        │       ├── nuscenes_dataset.py
         │
         ├── model_modules
         │   ├── loss.py
@@ -34,3 +30,4 @@ Computer Vision for Autonomous Driving
         ├── .gitignore
         ├── LICENSE
         ├── README.md
+
