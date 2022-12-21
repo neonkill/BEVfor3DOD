@@ -1,3 +1,0 @@
-'''
-nuscenes depth estimation
-'''

@@ -1,3 +1,0 @@
-'''
-nuscenes semantic segmentation
-'''

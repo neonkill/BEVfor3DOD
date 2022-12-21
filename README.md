@@ -4,23 +4,23 @@ Computer Vision for Autonomous Driving
 ## structure
 
         CV_For_Autonomous_Driving
-        ├── configs
+        ├── config
         │   ├── data
         │   ├── model
-        │   ├── config.yaml
+        │   ├── experiment
+        │   ├── default_config.yaml
         │
-        ├── data_modules
-        │   ├── data_module.py
-        │   ├── augmentations.py
-        │   ├── datasets
+        ├── data_module
+        │   ├── lightning_data_module.py
+        │   ├── augmentation.py
+        │   ├── dataset
         │       ├── nuscenes_dataset.py
         │
-        ├── model_modules
+        ├── model_module
         │   ├── loss.py
-        │   ├── metrics.py
-        │   ├── model_module.py
-        │   ├── models
-        │       ├── nn.module classes
+        │   ├── metric.py
+        │   ├── lightning_model_module.py
+        │   ├── model
         |
         ├── scripts
         │   ├── train.py

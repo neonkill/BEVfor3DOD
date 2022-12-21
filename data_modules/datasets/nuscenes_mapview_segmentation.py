@@ -1,3 +1,0 @@
-'''
-nuscenes map-view segmentation
-'''
