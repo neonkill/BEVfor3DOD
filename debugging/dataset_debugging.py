@@ -37,6 +37,8 @@ def main(cfg):
     
     setup_config(cfg)
 
+
+    # dataset list 만드는 test
     DM = DataModule(cfg.data, cfg.loader)
 
     split = 'train'
@@ -47,11 +49,18 @@ def main(cfg):
     print(f'In {split} dataset, {len(datasets)} scenes are included.')
 
 
+    # dataset init test
     total = 0
     for dataset in datasets:
         total += len(dataset)
 
     print(f'nuscenes train has {total} data samples')
+
+
+    # dataset __getitem__ test
+    data = datasets[0].__getitem__(10)
+    for k, v in data.items():
+        print(f'{k}: {v.shape}')
 
 if __name__ == '__main__':
     main()

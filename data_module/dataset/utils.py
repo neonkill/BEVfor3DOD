@@ -39,3 +39,38 @@ def get_pose(transform, inv=False, flat=False):
     pose[:3, -1] = t if not inv else R.T @ -t
 
     return pose
+
+
+class Sample(dict):
+    def __init__(
+        self,
+        token,
+        scene,
+        intrinsics,
+        extrinsics,
+        images,
+        view,
+        bev,
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+
+        # Used to create path in save/load
+        self.token = token
+        self.scene = scene
+
+        self.view = view
+        self.bev = bev
+
+        self.images = images
+
+        self.intrinsics = intrinsics
+        self.extrinsics = extrinsics
+
+    def __getattr__(self, key):
+        return super().__getitem__(key)
+
+    def __setattr__(self, key, val):
+        self[key] = val
+
+        return super().__setattr__(key, val)

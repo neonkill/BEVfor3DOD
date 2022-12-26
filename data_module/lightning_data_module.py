@@ -49,6 +49,7 @@ class DataModule(pl.LightningDataModule):
             # datasets.append(1)
             dataset = NuScenesDataset(nusc, 
                                         nusc_map, 
+                                        dataset_dir,
                                         scene_name, 
                                         scene_record, 
                                         **kwargs)
