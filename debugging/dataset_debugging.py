@@ -1,5 +1,6 @@
 
 import hydra
+from tqdm import tqdm
 from typing import Optional
 from collections.abc import Callable
 from omegaconf import OmegaConf, DictConfig
@@ -41,26 +42,39 @@ def main(cfg):
     # dataset list 만드는 test
     DM = DataModule(cfg.data, cfg.loader)
 
-    split = 'train'
-    data_cfg = DM.data_cfg
-    datasets = DM.get_datasets(split=split,
-                                **data_cfg)
+    # split = 'train'
+    # data_cfg = DM.data_cfg
+    # datasets = DM.get_datasets(split=split,
+    #                             **data_cfg)
 
-    print(f'In {split} dataset, {len(datasets)} scenes are included.')
-
-
-    # dataset init test
-    total = 0
-    for dataset in datasets:
-        total += len(dataset)
-
-    print(f'nuscenes train has {total} data samples')
+    # print(f'In {split} dataset, {len(datasets)} scenes are included.')
 
 
-    # dataset __getitem__ test
-    data = datasets[0].__getitem__(10)
-    for k, v in data.items():
-        print(f'{k}: {v.shape}')
+    # # dataset init test
+    # total = 0
+    # for dataset in datasets:
+    #     total += len(dataset)
+
+    # print(f'nuscenes train has {total} data samples')
+
+
+    # # dataset __getitem__ test
+    # data = datasets[0].__getitem__(10)
+    # for k, v in data.items():
+    #     print(f'{k}: {v.shape}')
+
+
+    # dataloader test
+    train_dataloader = DM.train_dataloader()
+    val_dataloader = DM.val_dataloader()
+
+    print('start train dataloader iter')
+    for _ in tqdm(train_dataloader):
+        continue
+
+    print('start val dataloader iter')
+    for _ in tqdm(val_dataloader):
+        continue
 
 if __name__ == '__main__':
     main()

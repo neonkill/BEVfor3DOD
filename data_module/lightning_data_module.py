@@ -60,14 +60,15 @@ class DataModule(pl.LightningDataModule):
 
     def get_loader(self, split, shuffle):
         
-        version = 'v1.0-' + split
-        loader_cfg = dict(self.loader_cfg)
+        datasets = self.get_datasets(split=split, **self.data_cfg)
+        dataset = torch.utils.data.ConcatDataset(datasets)
 
-        dataset = NuimagesDataset(tf_cfg=self.data_cfg, version=version)
+        loader_config = dict(self.loader_cfg)
 
-        return torch.utils.data.DataLoader(dataset, 
-                                        shuffle=shuffle, 
-                                        **loader_cfg)
+        if loader_config['num_workers'] == 0:
+            loader_config['prefetch_factor'] = 2
+
+        return torch.utils.data.DataLoader(dataset, shuffle=shuffle, **loader_config)
 
 
     def train_dataloader(self, shuffle=True):
