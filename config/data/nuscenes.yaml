@@ -23,6 +23,9 @@ bev:
 
 # input parameters (not used in label generation)
 image:
-  h: 224
-  w: 480
-  top_crop: 46
+  h: 900
+  w: 1600
+  top_crop: 0
+  # h: 224
+  # w: 480
+  # top_crop: 46
