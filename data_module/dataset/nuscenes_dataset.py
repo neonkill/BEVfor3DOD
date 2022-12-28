@@ -68,7 +68,7 @@ NUM_CLASSES = len(CLASSES)
 
 
 def get_split(split, dataset_name):
-    split_dir = Path(__file__).parent / 'splits' / dataset_name
+    split_dir = Path(__file__).parent / 'splits'
     split_path = split_dir / f'{split}.txt'
 
     return split_path.read_text().strip().split('\n')
