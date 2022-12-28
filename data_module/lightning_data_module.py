@@ -8,12 +8,14 @@ import pytorch_lightning as pl
 from nuscenes.nuscenes import NuScenes
 from nuscenes.map_expansion.map_api import NuScenesMap
 
+from . import get_dataset_module_by_name
+
 # from data_module.dataset.nuscenes_dataset import NuScenesDataset
 from data_module.dataset.nuse_det_test import NuScenesDataset
 # from data_module.dataset.nusc_det_dataset import NuScenesDataset
 
 def get_split(split):
-    path = Path(__file__).parent / 'dataset' / 'splits' / f'{split}.txt'
+    path = Path(__file__).parent / 'splits' / 'nuscenes' / f'{split}.txt'
     return path.read_text().strip().split('\n')
 
 
@@ -22,46 +24,14 @@ class DataModule(pl.LightningDataModule):
     def __init__(self, data_cfg, loader_cfg):
         super().__init__()
 
+        self.get_data = get_dataset_module_by_name('CV_nuscenes_dataset').get_data
         self.data_cfg = data_cfg
         self.loader_cfg = loader_cfg
 
 
-    # 각 scene들의 dataset을 만들고, 이 dataset들의 list 반환
-    def get_datasets(self,
-                    dataset_dir,
-                    version='v1.0-trainval',
-                    split='train',
-                    **kwargs
-                    ):
+    def get_split(self, split, shuffle):
 
-        nusc = NuScenes(version=version, dataroot=dataset_dir)
-        split_scenes = get_split(split)
-
-        datasets = []
-        for scene_record in nusc.scene:
-
-            scene_name = scene_record['name']
-            if scene_name not in split_scenes:
-                continue
-            
-            map_name = nusc.get('log', scene_record['log_token'])['location']
-            nusc_map = NuScenesMap(dataroot=dataset_dir, map_name=map_name)
-
-
-            dataset = NuScenesDataset(nusc, 
-                                        nusc_map, 
-                                        dataset_dir,
-                                        scene_name, 
-                                        scene_record, 
-                                        **kwargs)
-            datasets.append(dataset)
-
-        return datasets
-
-
-    def get_loader(self, split, shuffle):
-        
-        datasets = self.get_datasets(split=split, **self.data_cfg)
+        datasets = self.get_data(split=split, **self.data_cfg)
         dataset = torch.utils.data.ConcatDataset(datasets)
 
         loader_config = dict(self.loader_cfg)
@@ -69,142 +39,56 @@ class DataModule(pl.LightningDataModule):
         if loader_config['num_workers'] == 0:
             loader_config['prefetch_factor'] = 2
 
-        return torch.utils.data.DataLoader(dataset, shuffle=shuffle, **loader_config)
+        return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
 
 
     def train_dataloader(self, shuffle=True):
-        return self.get_loader('train', shuffle=shuffle)
+        return self.get_split('train', shuffle=shuffle)
 
     def val_dataloader(self, shuffle=True):
-        return self.get_loader('val', shuffle=shuffle)
+        return self.get_split('val', shuffle=shuffle)
 
     def eval_dataloader(self, shuffle=False):
-        return self.get_loader('eval', shuffle=shuffle)
-    
-
-    def get_dataset_test(self,
-                    dataset_dir,
-                    version='v1.0-trainval',
-                    split='train',
-                    **kwargs
-                    ):
-
-        nusc = NuScenes(version=version, dataroot=dataset_dir)
-        split_scenes = get_split(split)
-
-        datasets = []
-        for scene_record in nusc.scene:
-
-            scene_name = scene_record['name']
-            if scene_name not in split_scenes:
-                continue
-            
-            map_name = nusc.get('log', scene_record['log_token'])['location']
-            nusc_map = NuScenesMap(dataroot=dataset_dir, map_name=map_name)
+        return self.get_split('eval', shuffle=shuffle)
 
 
-            # datasets.append(1)
-            dataset = NuScenesDataset(nusc, 
-                                        nusc_map, 
-                                        dataset_dir,
-                                        scene_name, 
-                                        scene_record, 
-                                        **kwargs)
 
-            return dataset
+def collate_fn(batchs):
 
+    bevs, views = [], []
+    centers, visibilitys = [], []
+    depths, cam_idxs, images = [], [], []
+    intrinsics, extrinsics = [], []
+    gt_boxs, gt_labels = [], []
 
-    def get_dataset_bevdepth(self,
-                    dataset_dir,
-                    version='v1.0-trainval',
-                    split='train',
-                    **kwargs
-                    ):
+    for batch in batchs:
+        bevs.append(batch['bev'])
+        views.append(batch['view'])
+        centers.append(batch['center'])
+        visibilitys.append(batch['visibility'])
+        depths.append(batch['depth'])
+        cam_idxs.append(batch['cam_idx'])
+        images.append(batch['image'])
+        intrinsics.append(batch['intrinsics'])
+        extrinsics.append(batch['extrinsics'])
+        gt_boxs.append(batch['gt_box'])
+        gt_labels.append(batch['gt_label'])
 
-        H = 900
-        W = 1600
-        final_dim = (256, 704)
-        img_conf = dict(img_mean=[123.675, 116.28, 103.53],
-                img_std=[58.395, 57.12, 57.375],
-                to_rgb=True)
+    results = {}
+    results['bev'] = torch.stack(bevs, dim=0)
+    results['view'] = torch.stack(views, dim=0)
+    results['center'] = torch.stack(centers, dim=0)
+    results['visibility'] = torch.stack(visibilitys, dim=0)
+    results['depth'] = torch.stack(depths, dim=0)
+    results['cam_idx'] = torch.stack(cam_idxs, dim=0)
+    results['image'] = torch.stack(images, dim=0)
+    results['intrinsics'] = torch.stack(intrinsics, dim=0)
+    results['extrinsics'] = torch.stack(extrinsics, dim=0)
 
-        ida_aug_conf = {
-        'resize_lim': (0.386, 0.55),
-        'final_dim':
-        final_dim,
-        'rot_lim': (-5.4, 5.4),
-        'H':
-        H,
-        'W':
-        W,
-        'rand_flip':
-        True,
-        'bot_pct_lim': (0.0, 0.0),
-        'cams': [
-            'CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT',
-            'CAM_BACK', 'CAM_BACK_RIGHT'
-        ],
-        'Ncams':
-        6,
-        }
+    results['gt_box'] = gt_boxs
+    results['gt_label'] = gt_labels
 
-        bda_aug_conf = {
-        'rot_lim': (-22.5, 22.5),
-        'scale_lim': (0.95, 1.05),
-        'flip_dx_ratio': 0.5,
-        'flip_dy_ratio':
-         0.5
-        }
-        CLASSES = [
-        'car',
-        'truck',
-        'construction_vehicle',
-        'bus',
-        'trailer',
-        'barrier',
-        'motorcycle',
-        'bicycle',
-        'pedestrian',
-        'traffic_cone',
-        ]
-
-        nusc = NuScenes(version=version, dataroot=dataset_dir)
-        split_scenes = get_split(split)
-
-        datasets = []
-        for scene_record in nusc.scene:
-
-            scene_name = scene_record['name']
-            if scene_name not in split_scenes:
-                continue
-            
-            map_name = nusc.get('log', scene_record['log_token'])['location']
-            nusc_map = NuScenesMap(dataroot=dataset_dir, map_name=map_name)
-
-
-            # datasets.append(1)
-            train_dataset = NuscDetDataset(ida_aug_conf=ida_aug_conf,
-                                       bda_aug_conf=bda_aug_conf,
-                                       classes=CLASSES,
-                                       data_root=dataset_dir,
-                                       info_paths='/usr/src/CV_For_Autonomous_Driving/BEVDepth/scripts/data/nuScenes/nuscenes_infos_train.pkl',
-                                       is_train=True,
-                                       use_cbgs=False,
-                                       img_conf=img_conf,
-                                       num_sweeps=1,
-                                       sweep_idxes=list(),
-                                       key_idxes=list(),
-                                       return_depth=True,
-                                       use_fusion=False)
-
-            return dataset
-
-
-    
-
-
-    
-
+    return results
 
 
 

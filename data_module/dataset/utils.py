@@ -1,6 +1,11 @@
 
 import numpy as np
+from functools import lru_cache
 from pyquaternion import Quaternion
+from nuscenes.utils.data_classes import LidarPointCloud
+from nuscenes.utils.geometry_utils import view_points
+
+
 
 
 
@@ -91,3 +96,114 @@ def depth_transform(cam_depth, resize, resize_dims, crop, flip, rotate):
               depth_coords[valid_mask, 0]] = cam_depth[valid_mask, 2]
 
     return depth_map
+
+
+
+class NuScenesSingleton:
+    """
+    Wraps both nuScenes and nuScenes map API
+
+    This was an attempt to sidestep the 30 second loading time in a "clean" manner
+    """
+    def __init__(self, dataset_dir, version):
+        """
+        dataset_dir: /path/to/nuscenes/
+        version: v1.0-trainval
+        """
+        self.dataroot = str(dataset_dir)
+        self.nusc = self.lazy_nusc(version, self.dataroot)
+
+    @classmethod
+    def lazy_nusc(cls, version, dataroot):
+        # Import here so we don't require nuscenes-devkit unless regenerating labels
+        from nuscenes.nuscenes import NuScenes
+
+        if not hasattr(cls, '_lazy_nusc'):
+            cls._lazy_nusc = NuScenes(version=version, dataroot=dataroot)
+
+        return cls._lazy_nusc
+
+    def get_scenes(self):
+        for scene_record in self.nusc.scene:
+            yield scene_record['name'], scene_record
+
+    @lru_cache(maxsize=16)
+    def get_map(self, log_token):
+        # Import here so we don't require nuscenes-devkit unless regenerating labels
+        from nuscenes.map_expansion.map_api import NuScenesMap
+
+        map_name = self.nusc.get('log', log_token)['location']
+        nusc_map = NuScenesMap(dataroot=self.dataroot, map_name=map_name)
+
+        return nusc_map
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, '_singleton'):
+            obj = super(NuScenesSingleton, cls).__new__(cls)
+            obj.__init__(*args, **kwargs)
+
+            cls._singleton = obj
+
+        return cls._singleton
+
+        
+def map_pointcloud_to_image(
+        lidar_points,
+        img,
+        lidar_calibrated_sensor,
+        lidar_ego_pose,
+        cam_calibrated_sensor,
+        cam_ego_pose,
+        min_dist: float = 0.0,
+    ):
+
+        # Points live in the point sensor frame. So they need to be
+        # transformed via global to the image plane.
+        # First step: transform the pointcloud to the ego vehicle
+        # frame for the timestamp of the sweep.
+
+        lidar_points = LidarPointCloud(lidar_points.T)
+        lidar_points.rotate(
+            Quaternion(lidar_calibrated_sensor['rotation']).rotation_matrix)
+        lidar_points.translate(np.array(lidar_calibrated_sensor['translation']))
+
+        # Second step: transform from ego to the global frame.
+        lidar_points.rotate(Quaternion(lidar_ego_pose['rotation']).rotation_matrix)
+        lidar_points.translate(np.array(lidar_ego_pose['translation']))
+
+        # Third step: transform from global into the ego vehicle
+        # frame for the timestamp of the image.
+        lidar_points.translate(-np.array(cam_ego_pose['translation']))
+        lidar_points.rotate(Quaternion(cam_ego_pose['rotation']).rotation_matrix.T)
+
+        # Fourth step: transform from ego into the camera.
+        lidar_points.translate(-np.array(cam_calibrated_sensor['translation']))
+        lidar_points.rotate(
+            Quaternion(cam_calibrated_sensor['rotation']).rotation_matrix.T)
+
+        # Fifth step: actually take a "picture" of the point cloud.
+        # Grab the depths (camera frame z axis points away from the camera).
+        depths = lidar_points.points[2, :]
+        coloring = depths
+
+        # Take the actual picture (matrix multiplication with camera-matrix
+        # + renormalization).
+        points = view_points(lidar_points.points[:3, :],
+                             np.array(cam_calibrated_sensor['camera_intrinsic']),
+                             normalize=True)
+
+        # Remove points that are either outside or behind the camera.
+        # Leave a margin of 1 pixel for aesthetic reasons. Also make
+        # sure points are at least 1m in front of the camera to avoid
+        # seeing the lidar points on the camera casing for non-keyframes
+        # which are slightly out of sync.
+        mask = np.ones(depths.shape[0], dtype=bool)
+        mask = np.logical_and(mask, depths > min_dist)
+        mask = np.logical_and(mask, points[0, :] > 1)
+        mask = np.logical_and(mask, points[0, :] < img.size[0] - 1)
+        mask = np.logical_and(mask, points[1, :] > 1)
+        mask = np.logical_and(mask, points[1, :] < img.size[1] - 1)
+        points = points[:, mask]
+        coloring = coloring[mask]
+
+        return points, coloring
