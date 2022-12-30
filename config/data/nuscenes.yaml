@@ -3,6 +3,8 @@
 num_classes: 12
 version: 'v1.0-trainval'
 dataset_dir: '/usr/src/nuscenes'
+labels_dir: '/usr/src/cvt_labels_nuscenes_v2'
+
 
 # used to generate dataset
 cameras: [[0, 1, 2, 3, 4, 5]]

@@ -68,7 +68,7 @@ NUM_CLASSES = len(CLASSES)
 
 
 def get_split(split, dataset_name):
-    split_dir = Path(__file__).parent / 'splits' / dataset_name
+    split_dir = Path(__file__).parent / 'splits'
     split_path = split_dir / f'{split}.txt'
 
     return split_path.read_text().strip().split('\n')
@@ -78,10 +78,6 @@ def get_data(
     labels_dir,
     split,
     version,
-    dataset='unused',                   # ignore
-    augment='unused',                   # ignore
-    image='unused',                     # ignore
-    label_indices='unused',             # ignore
     num_classes=NUM_CLASSES,            # in here to make config consistent
     **dataset_kwargs
 ):
@@ -95,6 +91,8 @@ def get_data(
 
     result = list()
 
+    #!
+    print(dataset_kwargs)
     for scene_name, scene_record in helper.get_scenes():
         if scene_name not in split_scenes:
             continue

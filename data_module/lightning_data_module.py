@@ -10,12 +10,9 @@ from nuscenes.map_expansion.map_api import NuScenesMap
 
 from . import get_dataset_module_by_name
 
-# from data_module.dataset.nuscenes_dataset import NuScenesDataset
-from data_module.dataset.nuse_det_test import NuScenesDataset
-# from data_module.dataset.nusc_det_dataset import NuScenesDataset
 
 def get_split(split):
-    path = Path(__file__).parent / 'splits' / 'nuscenes' / f'{split}.txt'
+    path = Path(__file__).parent / 'splits' /  f'{split}.txt'
     return path.read_text().strip().split('\n')
 
 
@@ -24,7 +21,7 @@ class DataModule(pl.LightningDataModule):
     def __init__(self, data_cfg, loader_cfg):
         super().__init__()
 
-        self.get_data = get_dataset_module_by_name('CV_nuscenes_dataset').get_data
+        self.get_data = get_dataset_module_by_name('nuscenes_dataset').get_data
         self.data_cfg = data_cfg
         self.loader_cfg = loader_cfg
 
