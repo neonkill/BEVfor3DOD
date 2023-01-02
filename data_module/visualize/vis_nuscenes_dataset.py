@@ -21,6 +21,7 @@ from pathlib import Path
 from functools import lru_cache
 
 from data_module.dataset.utils import *
+
 from pyquaternion import Quaternion
 from shapely.geometry import MultiPolygon
 from nuscenes.utils.data_classes import Box, LidarPointCloud
@@ -43,7 +44,7 @@ map_name_from_general_to_detection = {
     'human.pedestrian.stroller': 'ignore',
     'human.pedestrian.personal_mobility': 'ignore',
     'human.pedestrian.police_officer': 'pedestrian',
-    'human.pedestrian.constructi    on_worker': 'pedestrian',
+    'human.pedestrian.construction_worker': 'pedestrian',
     'animal': 'ignore',
     'vehicle.car': 'car',
     'vehicle.motorcycle': 'motorcycle',
@@ -66,67 +67,41 @@ CLASSES = STATIC + DIVIDER + DYNAMIC
 NUM_CLASSES = len(CLASSES)
 
 
-def map_pointcloud_to_image(
-        lidar_points,
-        img,
-        lidar_calibrated_sensor,
-        lidar_ego_pose,
-        cam_calibrated_sensor,
-        cam_ego_pose,
-        min_dist: float = 0.0,
-    ):
+def get_split(split, dataset_name):
+    print(Path(__file__).parent, Path(__file__).parent.parent)
+    split_dir = Path(__file__).parent.parent /'dataset'/ 'splits'
+    split_path = split_dir / f'{split}.txt'
 
-        # Points live in the point sensor frame. So they need to be
-        # transformed via global to the image plane.
-        # First step: transform the pointcloud to the ego vehicle
-        # frame for the timestamp of the sweep.
+    return split_path.read_text().strip().split('\n')
 
-        lidar_points = LidarPointCloud(lidar_points.T)
-        lidar_points.rotate(
-            Quaternion(lidar_calibrated_sensor['rotation']).rotation_matrix)
-        lidar_points.translate(np.array(lidar_calibrated_sensor['translation']))
+def get_data(
+    dataset_dir,
+    labels_dir,
+    split,
+    version,
+    num_classes=NUM_CLASSES,            # in here to make config consistent
+    **dataset_kwargs
+):
+    assert num_classes == NUM_CLASSES
+    
+    helper = NuScenesSingleton(dataset_dir, version)
 
-        # Second step: transform from ego to the global frame.
-        lidar_points.rotate(Quaternion(lidar_ego_pose['rotation']).rotation_matrix)
-        lidar_points.translate(np.array(lidar_ego_pose['translation']))
+    # Format the split name
+    split = f'mini_{split}' if version == 'v1.0-mini' else split
+    split_scenes = get_split(split, 'nuscenes')
 
-        # Third step: transform from global into the ego vehicle
-        # frame for the timestamp of the image.
-        lidar_points.translate(-np.array(cam_ego_pose['translation']))
-        lidar_points.rotate(Quaternion(cam_ego_pose['rotation']).rotation_matrix.T)
+    result = list()
 
-        # Fourth step: transform from ego into the camera.
-        lidar_points.translate(-np.array(cam_calibrated_sensor['translation']))
-        lidar_points.rotate(
-            Quaternion(cam_calibrated_sensor['rotation']).rotation_matrix.T)
+    #!
+    print(dataset_kwargs)
+    for scene_name, scene_record in helper.get_scenes():
+        if scene_name not in split_scenes:
+            continue
 
-        # Fifth step: actually take a "picture" of the point cloud.
-        # Grab the depths (camera frame z axis points away from the camera).
-        depths = lidar_points.points[2, :]
-        coloring = depths
+        data = NuScenesDataset(scene_name, scene_record, helper, dataset_dir, **dataset_kwargs)
+        result.append(data)
 
-        # Take the actual picture (matrix multiplication with camera-matrix
-        # + renormalization).
-        points = view_points(lidar_points.points[:3, :],
-                             np.array(cam_calibrated_sensor['camera_intrinsic']),
-                             normalize=True)
-
-        # Remove points that are either outside or behind the camera.
-        # Leave a margin of 1 pixel for aesthetic reasons. Also make
-        # sure points are at least 1m in front of the camera to avoid
-        # seeing the lidar points on the camera casing for non-keyframes
-        # which are slightly out of sync.
-        mask = np.ones(depths.shape[0], dtype=bool)
-        mask = np.logical_and(mask, depths > min_dist)
-        mask = np.logical_and(mask, points[0, :] > 1)
-        mask = np.logical_and(mask, points[0, :] < img.size[0] - 1)
-        mask = np.logical_and(mask, points[1, :] > 1)
-        mask = np.logical_and(mask, points[1, :] < img.size[1] - 1)
-        points = points[:, mask]
-        coloring = coloring[mask]
-
-        return points, coloring
-
+    return result
 
 
 class NuScenesDataset(torch.utils.data.Dataset):
@@ -136,11 +111,13 @@ class NuScenesDataset(torch.utils.data.Dataset):
                 'barrier', 'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone']
 
     def __init__(self, 
-                nusc, 
-                nusc_map,
-                dataset_dir,
                 scene_name, 
                 scene_record,
+                helper,
+                dataset_dir,
+                cameras=[[0, 1, 2, 3, 4, 5]],
+                bev={'h': 200, 'w': 200, 'h_meters': 100, 'w_meters': 100, 'offset': 0.0},
+                image={'h': 224, 'w': 480, 'top_crop': 46},
                 **kwargs):
         '''
         kwargs
@@ -154,101 +131,45 @@ class NuScenesDataset(torch.utils.data.Dataset):
         self.scene_name = scene_name
         self.scene_record = scene_record
 
-        self.nusc = nusc
-        self.nusc_map = nusc_map
+        self.nusc = helper.nusc
+        self.nusc_map = helper.get_map(scene_record['log_token'])
         self.dataset_dir = dataset_dir
 
-        self.img_cfg = kwargs['image']
+        self.img_cfg = image
         self.img_transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
 
-        self.bh = kwargs['bev']['h']
-        self.bw = kwargs['bev']['w']
-        self.meter2pix = get_bev_meter2pix_matrix(kwargs['bev'])
+        self.bh = bev['h']
+        self.bw = bev['w']
+        self.meter2pix = get_bev_meter2pix_matrix(bev)
 
-        self.samples = self.get_scene_samples(scene_record, kwargs['cameras'])
+        self.samples = self.parse_scene(scene_record, cameras)
+        # self.samples = self.get_scene_samples(scene_record, kwargs['cameras'])
         
 
-    def get_scene_samples(self, scene_record, cameras):
-        samples = []
+    def parse_scene(self, scene_record, camera_rigs):
+        '''
+        하나의 scene에 대한 data sample token list 형태로 반환
+        return:
+            data(list):
+
+        '''
+        data = []
         sample_token = scene_record['first_sample_token']
 
         while sample_token:
             sample_record = self.nusc.get('sample', sample_token)
 
-            samples.append(self.get_sample_record(sample_record, cameras[0]))
+            for camera_rig in camera_rigs:
+                data.append(self.get_sample_record(sample_record, camera_rig))
+
             sample_token = sample_record['next']
 
-        return samples
-    
+        return data
 
-
-
-    def get_lidar_depth(self, lidar_points, img, lidar_record, cam_record):
-        
-        lidar_calibrated_sensor = self.nusc.get('calibrated_sensor', lidar_record['calibrated_sensor_token'])        
-        lidar_ego_pose = self.nusc.get('ego_pose', lidar_record['ego_pose_token'])
-        cam_calibrated_sensor = self.nusc.get('calibrated_sensor', cam_record['calibrated_sensor_token'])
-        cam_ego_pose = self.nusc.get('ego_pose', cam_record['ego_pose_token'])
-        
-        pts_img, depth = map_pointcloud_to_image(
-        lidar_points.copy(), img, lidar_calibrated_sensor.copy(),
-        lidar_ego_pose.copy(), cam_calibrated_sensor.copy(), cam_ego_pose.copy())
-
-        return np.concatenate([pts_img[:2, :].T, depth[:, None]],axis=1).astype(np.float32)
-
-    def get_boxgt(self, anns, egocams, cams):
-        """Generate gt labels from info.
-        Args:
-            info(dict): Infos needed to generate gt labels.
-            cams(list): Camera names.
-        Returns:
-            Tensor: GT bboxes.
-            Tensor: GT labels.
-        """
-        
-        ego2global_rotation = np.mean(
-            [egocams[cam]['rotation'] for cam in range(len(cams))],
-            0)
-        ego2global_translation = np.mean([
-            egocams[cam]['translation'] for cam in range(len(cams))
-        ], 0)
-        trans = -np.array(ego2global_translation)
-        rot = Quaternion(ego2global_rotation).inverse
-        gt_boxes = list()
-        gt_labels = list()
-        for ann_info in anns:
-            # Use ego coordinate.
-            if (map_name_from_general_to_detection[ann_info['category_name']]
-                    not in self.CLASSES
-                    or ann_info['num_lidar_pts'] + ann_info['num_radar_pts'] <=
-                    0):
-                continue
-            box = Box(
-                ann_info['translation'],
-                ann_info['size'],
-                Quaternion(ann_info['rotation']),
-                velocity=ann_info['velocity'],
-            )
-            box.translate(trans)
-            box.rotate(rot)
-            box_xyz = np.array(box.center)
-            box_dxdydz = np.array(box.wlh)[[1, 0, 2]]
-            box_yaw = np.array([box.orientation.yaw_pitch_roll[0]])
-            box_velo = np.array(box.velocity[:2])
-            gt_box = np.concatenate([box_xyz, box_dxdydz, box_yaw, box_velo])
-            gt_boxes.append(gt_box)
-            gt_labels.append(
-                self.CLASSES.index(map_name_from_general_to_detection[
-                    ann_info['category_name']]))
-
-        return gt_boxes, gt_labels
 
     def get_sample_record(self, sample_record, cameras):
         lidar_record = self.nusc.get('sample_data', sample_record['data']['LIDAR_TOP'])
-        lidar_path = lidar_record['filename']
-        lidar_points = np.fromfile(os.path.join(self.dataset_dir, lidar_path),dtype=np.float32,count=-1).reshape(-1, 5)[..., :4]
         egolidar = self.nusc.get('ego_pose', lidar_record['ego_pose_token'])
-        egolidar_calibrated = self.nusc.get('calibrated_sensor', lidar_record['calibrated_sensor_token'])
 
         egolidarflat2world = get_pose(egolidar, flat=True)
         world2egolidarflat = get_pose(egolidar, flat=True, inv=True)
@@ -284,13 +205,6 @@ class NuScenesDataset(torch.utils.data.Dataset):
             extrinsics.append(E.tolist())
             images.append(image_path)
             cam_records.append(cam_record)
-            
-
-            #! move to getitem
-            # image = Image.open(self.dataset_dir + '/' + image_path)
-            # point_depth = self.get_lidar_depth(lidar_points, image, lidar_record, cam_record)
-            # point_depths.append(point_depth)
-            
 
 
         return {
@@ -299,7 +213,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
             'lidar_record': lidar_record,
             'cam_records': cam_records,
-            'lidar_points': lidar_points,
+            'egolidar': egolidar,
 
             'pose': egolidarflat2world.tolist(),
             'pose_inverse': world2egolidarflat.tolist(),
@@ -311,6 +225,72 @@ class NuScenesDataset(torch.utils.data.Dataset):
             'images': images,
             'egocams':egocams,
         }
+
+
+    def get_lidar_depth(self, lidar_points, img, lidar_record, cam_record):
+        
+        lidar_calibrated_sensor = self.nusc.get('calibrated_sensor', lidar_record['calibrated_sensor_token'])        
+        lidar_ego_pose = self.nusc.get('ego_pose', lidar_record['ego_pose_token'])
+        cam_calibrated_sensor = self.nusc.get('calibrated_sensor', cam_record['calibrated_sensor_token'])
+        cam_ego_pose = self.nusc.get('ego_pose', cam_record['ego_pose_token'])
+        
+        pts_img, depth = map_pointcloud_to_image(
+        lidar_points.copy(), img, lidar_calibrated_sensor.copy(),
+        lidar_ego_pose.copy(), cam_calibrated_sensor.copy(), cam_ego_pose.copy())
+
+        return np.concatenate([pts_img[:2, :].T, depth[:, None]],axis=1).astype(np.float32)
+
+    def get_boxgt(self, anns, egocams, cams):
+        """Generate gt labels from info.
+        Args:
+            info(dict): Infos needed to generate gt labels.
+            cams(list): Camera names.
+        Returns:
+            Tensor: GT bboxes.
+            Tensor: GT labels.
+        """
+        
+        # ego2global_rotation = np.mean(
+        #     [egocams[cam]['rotation'] for cam in range(len(cams))],
+        #     0)
+        # ego2global_translation = np.mean([
+        #     egocams[cam]['translation'] for cam in range(len(cams))
+        # ], 0)
+
+        ego2global_rotation = egocams['rotation']
+        ego2global_translation = egocams['translation']
+        trans = -np.array(ego2global_translation)
+        rot = Quaternion(ego2global_rotation).inverse
+        gt_boxes = list()
+        gt_labels = list()
+        for ann_info in anns:
+            # Use ego coordinate.
+            if (map_name_from_general_to_detection[ann_info['category_name']]
+                    not in self.CLASSES
+                    or ann_info['num_lidar_pts'] + ann_info['num_radar_pts'] <=
+                    0):
+                continue
+            box = Box(
+                ann_info['translation'],
+                ann_info['size'],
+                Quaternion(ann_info['rotation']),
+                velocity=ann_info['velocity'],
+            )
+            box.translate(trans)
+            box.rotate(rot)
+            box_xyz = np.array(box.center)
+            box_dxdydz = np.array(box.wlh)[[1, 0, 2]]
+            box_yaw = np.array([box.orientation])
+            box_velo = np.array(box.velocity[:2])
+            gt_box = np.concatenate([box_xyz, box_dxdydz, box_yaw, box_velo])
+            gt_boxes.append(gt_box)
+            gt_labels.append(
+                self.CLASSES.index(map_name_from_general_to_detection[
+                    ann_info['category_name']]))
+
+        return gt_boxes, gt_labels
+
+    
 
 
     def get_category_index(self, name, categories):
@@ -553,8 +533,10 @@ class NuScenesDataset(torch.utils.data.Dataset):
     def get_images(self, sample, h, w, top_crop):
         images = list()
         depths = list()
-
         intrinsics = list()
+
+        lidar_path = sample['lidar_record']['filename']
+        lidar_points = np.fromfile(os.path.join(self.dataset_dir, lidar_path),dtype=np.float32,count=-1).reshape(-1, 5)[..., :4]
 
         for i, (image_path, I_original) in enumerate(zip(sample['images'], sample['intrinsics'])):
             h_resize = h + top_crop
@@ -563,7 +545,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
             # read image & depth
             image = Image.open(self.dataset_dir + '/' + image_path)
 
-            point_depth = self.get_lidar_depth(sample['lidar_points'], 
+            point_depth = self.get_lidar_depth(lidar_points, 
                                                 image, 
                                                 sample['lidar_record'], 
                                                 sample['cam_records'][i])
@@ -623,13 +605,16 @@ class NuScenesDataset(torch.utils.data.Dataset):
         static = self.get_static_layers(sample, STATIC)
         dividers = self.get_line_layers(sample, DIVIDER, thickness=2)
         dynamic = self.get_dynamic_layers(sample, anns_dynamic) 
-        bev = np.concatenate((static, dividers, dynamic), -1)
+        bev = np.transpose(np.concatenate((static, dividers, dynamic), -1), (2, 0, 1))
 
         center, visibility = self.get_dynamic_objects(sample, anns_vehicle)
+        center = np.transpose(center, (2, 0, 1))
 
 
         # 3D object detection target
-        gt_box, gt_label = self.get_boxgt(anns_box, sample['egocams'], self.CAMERAS)
+        # gt_box, gt_label = self.get_boxgt(anns_box, sample['egocams'], self.CAMERAS)
+        gt_box, gt_label = self.get_boxgt(anns_box, sample['egolidar'], self.CAMERAS)
+        
         
 
         # input images & depth target
@@ -640,7 +625,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
                         'view': torch.tensor(self.meter2pix),
                         'center': torch.tensor(center),
                         'visibility': torch.tensor(visibility),
-                        'gt_box':torch.tensor(gt_box),
+                        'gt_box': gt_box,
                         'gt_label':torch.tensor(gt_label)})
 
 
