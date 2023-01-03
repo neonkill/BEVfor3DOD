@@ -139,7 +139,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         self.bw = bev['w']
         self.meter2pix = get_bev_meter2pix_matrix(bev)
 
-        self.samples = self.parse_scene(scene_record, cameras)[:100]
+        self.samples = self.parse_scene(scene_record, cameras)
         # self.samples = self.get_scene_samples(scene_record, kwargs['cameras'])
         
 

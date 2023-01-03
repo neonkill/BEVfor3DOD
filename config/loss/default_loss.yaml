@@ -1,7 +1,7 @@
 
 
 # for road
-road_weight: 0.3
+road_weight: 0.4
 road:
   _target_: model_module.losses.BinarySegmentationLoss
 
@@ -11,7 +11,7 @@ road:
   alpha: -1.0
 
 # for lane
-lane_weight: 0.3
+lane_weight: 0.4
 lane:
   _target_: model_module.losses.BinarySegmentationLoss
 
@@ -21,7 +21,7 @@ lane:
   alpha: -1.0
 
 # for vehicle
-vehicle_weight: 0.3
+vehicle_weight: 0.15
 vehicle:
   _target_: model_module.losses.BinarySegmentationLoss
 
@@ -32,7 +32,7 @@ vehicle:
   min_visibility: 2
 
 # for center
-center_weight: 0.1
+center_weight: 0.05
 center:
   _target_: model_module.losses.CenterLoss
 

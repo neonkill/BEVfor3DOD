@@ -19,7 +19,7 @@ experiment:
 
 
 loader:
-  batch_size: 1         # per gpu
+  batch_size: 8         # per gpu
   num_workers: 4
   pin_memory: True
   prefetch_factor: 4
@@ -43,7 +43,7 @@ scheduler:
 
 # lightning trainer
 trainer:
-  max_steps: 123060      #! epochs * steps_per_epoch
+  max_steps: 30765  #! batch_size 2: 123060
   log_every_n_steps: 50
 
   gpus: 4
