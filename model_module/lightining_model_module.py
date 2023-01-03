@@ -53,6 +53,9 @@ class ModelModule(pl.LightningModule):
         return self.shared_step(batch, 'val', False,
                                 batch_idx % self.hparams.experiment.log_image_interval == 0)
 
+    def vis_step(self, batch, batch_idx):
+        return self.shared_step(batch, 'vis', False, True)
+
     def test_step(self, batch, batch_idx):
         return self.shared_step(batch, 'test', False,
                                 batch_idx % self.hparams.experiment.log_image_interval == 0)
