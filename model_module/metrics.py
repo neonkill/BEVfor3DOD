@@ -43,7 +43,7 @@ class BaseIoUMetric(Metric):
 
     def compute(self):
         ious = self.tp / (self.tp + self.fp + self.fn + 1e-7)
-        return {f'{self.cls}': ious.item()}
+        return self.cls, ious.item() # {f'{self.cls}': ious.item()}
 
 
 class IoUMetric(BaseIoUMetric):

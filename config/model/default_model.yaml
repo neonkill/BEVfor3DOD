@@ -33,3 +33,4 @@ seg_extractor:
 seg_head:
   _target_: model_module.model.segmentation.semantic_head.SemanticHead
   dim: ${model.backbone.reduce_dim}
+  num_cls: 4

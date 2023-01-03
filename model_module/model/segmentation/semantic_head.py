@@ -12,7 +12,7 @@ from model_module.model.modules import ResBlock
 
 class SemanticHead(torch.nn.Module):
 
-    def __init__(self, dim=64):
+    def __init__(self, dim=64, num_cls=4):
         super().__init__()
 
         self.up = nn.Sequential(
@@ -32,7 +32,7 @@ class SemanticHead(torch.nn.Module):
                                 nn.Conv2d(int(dim/2), int(dim/2), 3, padding=1, bias=False),
                                 nn.BatchNorm2d(int(dim/2)),
                                 nn.ReLU(inplace=True),
-                                nn.Conv2d(int(dim/2), 4, 1))
+                                nn.Conv2d(int(dim/2), num_cls, 1))
 
     def forward(self, x):
         '''
