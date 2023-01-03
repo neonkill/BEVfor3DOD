@@ -33,7 +33,9 @@ class ModelModule(pl.LightningModule):
         pred = self(batch)
         loss, loss_details = self.loss_func(pred, batch)
 
-        self.metrics.update(pred, batch)
+        # self.metrics.update(pred, batch)
+        for k, v in self.metrics.items():
+            v.update(pred, batch)
 
         if self.trainer is not None:
             self.log(f'{prefix}/total_loss', loss.detach(), on_step=on_step, on_epoch=True)
@@ -73,16 +75,22 @@ class ModelModule(pl.LightningModule):
         val 하면서 metric update 하고 val 끝나면 metric logging 후 reset
         """
 
-        metrics = self.metrics.compute()
+        for k, v in self.metrics.items():
+            key, value = v.compute()
+            print(f'{prefix}/metrics/{key}', value)
+            self.log(f'{prefix}/metrics/{key}', value)
+            v.reset()
 
-        for key, value in metrics.items():
-            if isinstance(value, dict):
-                for subkey, val in value.items():
-                    self.log(f'{prefix}/metrics/{key}{subkey}', val)
-            else:
-                self.log(f'{prefix}/metrics/{key}', value)
+        # metrics = self.metrics.compute()
 
-        self.metrics.reset()
+        # for key, value in metrics.items():
+        #     if isinstance(value, dict):
+        #         for subkey, val in value.items():
+        #             self.log(f'{prefix}/metrics/{key}{subkey}', val)
+        #     else:
+        #         self.log(f'{prefix}/metrics/{key}', value)
+
+        # self.metrics.reset()
 
     def _enable_dataloader_shuffle(self, dataloaders):
         """

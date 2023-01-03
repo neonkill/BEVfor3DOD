@@ -499,7 +499,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         center_offset = np.zeros((h, w, 2), dtype=np.float32)
         buf = np.zeros((h, w), dtype=np.uint8)
 
-        visibility = np.full((h, w), 0, dtype=np.uint8)
+        visibility = np.full((h, w), 255, dtype=np.uint8)
 
         coords = np.stack(np.meshgrid(np.arange(w), np.arange(h)), -1).astype(np.float32)
 
