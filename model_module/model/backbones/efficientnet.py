@@ -111,21 +111,28 @@ class EfficientNetExtractor(torch.nn.Module):
         self.layer_names = layers + extra_layers
         self.idx_pick = [layer_to_idx[l] for l in self.layer_names]
 
-        self.red_layers = nn.ModuleList()
+        red_layers = []
         for channel in chs:
-            layer = nn.Conv2d(channel, reduce_dim, 1)
-            self.red_layers.append(layer)
+            red_layers.append(nn.Sequential(
+                                    nn.Conv2d(channel, reduce_dim, 
+                                            kernel_size=1, stride=1, bias=False),
+                                    nn.BatchNorm2d(reduce_dim),
+                                    nn.ReLU(inplace=True)))
+        self.red_layers = nn.Sequential(*red_layers)
         
-        for m in self.red_layers.modules():
+        
+        for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_uniform_(m.weight, a=1)
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-        # Pass a dummy tensor to precompute intermediate shapes
-        dummy = torch.rand(2, 3, image_height, image_width)
-        output_shapes = [x.shape for x in self(dummy)]
+        # # Pass a dummy tensor to precompute intermediate shapes
+        # dummy = torch.rand(2, 3, image_height, image_width)
+        # output_shapes = [x.shape for x in self(dummy)]
 
-        self.output_shapes = output_shapes
+        # self.output_shapes = output_shapes
 
         
 
@@ -140,7 +147,7 @@ class EfficientNetExtractor(torch.nn.Module):
                 x = torch.utils.checkpoint.checkpoint(layer, x)
             else:
                 x = layer(x)
-
+            # print(x.shape)
             result.append(x)
 
         return [self.red_layers[i](result[idx]) for i, idx in enumerate(self.idx_pick)]

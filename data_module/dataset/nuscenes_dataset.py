@@ -91,8 +91,6 @@ def get_data(
 
     result = list()
 
-    #!
-    print(dataset_kwargs)
     for scene_name, scene_record in helper.get_scenes():
         if scene_name not in split_scenes:
             continue
@@ -141,7 +139,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         self.bw = bev['w']
         self.meter2pix = get_bev_meter2pix_matrix(bev)
 
-        self.samples = self.parse_scene(scene_record, cameras)
+        self.samples = self.parse_scene(scene_record, cameras)[:100]
         # self.samples = self.get_scene_samples(scene_record, kwargs['cameras'])
         
 
@@ -433,7 +431,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
             result.append(render)
         
-        return 255 * np.stack(result, -1)
+        return np.stack(result, -1)
 
 
     def get_line_layers(self, sample, layers, patch_radius=150, thickness=1):
@@ -473,7 +471,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
             result.append(render)
 
-        return 255 * np.stack(result, -1)
+        return np.stack(result, -1)
 
 
     def get_dynamic_layers(self, sample, anns_by_category):
@@ -491,7 +489,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
             result.append(render)
 
-        return 255 * np.stack(result, -1)
+        return np.stack(result, -1)
 
 
     def get_dynamic_objects(self, sample, annotations):
@@ -501,7 +499,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
         center_offset = np.zeros((h, w, 2), dtype=np.float32)
         buf = np.zeros((h, w), dtype=np.uint8)
 
-        visibility = np.full((h, w), 255, dtype=np.uint8)
+        visibility = np.full((h, w), 0, dtype=np.uint8)
 
         coords = np.stack(np.meshgrid(np.arange(w), np.arange(h)), -1).astype(np.float32)
 
@@ -544,10 +542,10 @@ class NuScenesDataset(torch.utils.data.Dataset):
             # read image & depth
             image = Image.open(self.dataset_dir + '/' + image_path)
 
-            point_depth = self.get_lidar_depth(lidar_points, 
-                                                image, 
-                                                sample['lidar_record'], 
-                                                sample['cam_records'][i])
+            # point_depth = self.get_lidar_depth(lidar_points, 
+            #                                     image, 
+            #                                     sample['lidar_record'], 
+            #                                     sample['cam_records'][i])
 
             # image resize & crop
             image_new = image.resize((w_resize, h_resize), resample=Image.BILINEAR)
@@ -555,12 +553,12 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
             #! depth resize & crop
             # point_depth_new = point_depth
-            point_depth_new = depth_transform(cam_depth=point_depth, 
-                                            resize=(1,1),
-                                            resize_dims=(h, w),
-                                            crop=[0, 0],
-                                            flip=False,
-                                            rotate=0)
+            # point_depth_new = depth_transform(cam_depth=point_depth, 
+            #                                 resize=(1,1),
+            #                                 resize_dims=(h, w),
+            #                                 crop=[0, 0],
+            #                                 flip=False,
+            #                                 rotate=0)
 
             I = np.float32(I_original)
             I[0, 0] *= w / image.width
@@ -571,10 +569,10 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
             images.append(self.img_transform(image_new))
             intrinsics.append(torch.tensor(I))
-            depths.append(torch.tensor(point_depth_new))
+            # depths.append(torch.tensor(point_depth_new))
 
         return {
-            'depth': torch.stack(depths, 0),
+            # 'depth': torch.stack(depths, 0),
             'cam_idx': torch.LongTensor(sample['cam_ids']),
             'image': torch.stack(images, 0),
             'intrinsics': torch.stack(intrinsics, 0),
@@ -612,7 +610,7 @@ class NuScenesDataset(torch.utils.data.Dataset):
 
         # 3D object detection target
         # gt_box, gt_label = self.get_boxgt(anns_box, sample['egocams'], self.CAMERAS)
-        gt_box, gt_label = self.get_boxgt(anns_box, sample['egolidar'], self.CAMERAS)
+        # gt_box, gt_label = self.get_boxgt(anns_box, sample['egolidar'], self.CAMERAS)
         
         
 
@@ -624,8 +622,9 @@ class NuScenesDataset(torch.utils.data.Dataset):
                         'view': torch.tensor(self.meter2pix),
                         'center': torch.tensor(center),
                         'visibility': torch.tensor(visibility),
-                        'gt_box':torch.tensor(gt_box),
-                        'gt_label':torch.tensor(gt_label)})
+                        # 'gt_box':torch.tensor(gt_box),
+                        # 'gt_label':torch.tensor(gt_label)
+                        })
 
 
         return result

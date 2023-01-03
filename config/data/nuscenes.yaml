@@ -17,17 +17,17 @@ cameras: [[0, 1, 2, 3, 4, 5]]
 
 # label parameters
 bev:
-  h: 200
-  w: 200
-  h_meters: 100.0
-  w_meters: 100.0
+  h: 256
+  w: 256
+  h_meters: 122.4
+  w_meters: 122.4
   offset: 0.0
 
 # input parameters (not used in label generation)
 image:
-  h: 900
-  w: 1600
-  top_crop: 0
-  # h: 224
-  # w: 480
-  # top_crop: 46
+  # h: 900
+  # w: 1600
+  # top_crop: 0
+  h: 224
+  w: 480
+  top_crop: 46

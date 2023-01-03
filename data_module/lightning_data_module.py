@@ -63,27 +63,27 @@ def collate_fn(batchs):
         views.append(batch['view'])
         centers.append(batch['center'])
         visibilitys.append(batch['visibility'])
-        depths.append(batch['depth'])
+        # depths.append(batch['depth'])
         cam_idxs.append(batch['cam_idx'])
         images.append(batch['image'])
         intrinsics.append(batch['intrinsics'])
         extrinsics.append(batch['extrinsics'])
-        gt_boxs.append(batch['gt_box'])
-        gt_labels.append(batch['gt_label'])
+        # gt_boxs.append(batch['gt_box'])
+        # gt_labels.append(batch['gt_label'])
 
     results = {}
     results['bev'] = torch.stack(bevs, dim=0)
     results['view'] = torch.stack(views, dim=0)
     results['center'] = torch.stack(centers, dim=0)
     results['visibility'] = torch.stack(visibilitys, dim=0)
-    results['depth'] = torch.stack(depths, dim=0)
+    # results['depth'] = torch.stack(depths, dim=0)
     results['cam_idx'] = torch.stack(cam_idxs, dim=0)
     results['image'] = torch.stack(images, dim=0)
     results['intrinsics'] = torch.stack(intrinsics, dim=0)
     results['extrinsics'] = torch.stack(extrinsics, dim=0)
 
-    results['gt_box'] = gt_boxs
-    results['gt_label'] = gt_labels
+    # results['gt_box'] = gt_boxs
+    # results['gt_label'] = gt_labels
 
     return results
 

@@ -10,6 +10,38 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+
+class ResBlock(torch.nn.Module):
+    def __init__(self, in_ch, out_ch, factor=2, norm='BN'):
+        super().__init__()
+
+        b_dim = out_ch // factor if (out_ch != 1) else out_ch
+        
+        if norm == 'BN':
+            normalization = nn.BatchNorm2d
+        elif norm == 'LN':
+            normalization = nn.LayerNorm
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_ch, b_dim, 3, padding=1, bias=False),
+            normalization(b_dim),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(b_dim, out_ch, 1, padding=0, bias=False),
+            normalization(out_ch))
+
+        self.up = nn.Conv2d(in_ch, out_ch, 1)
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        identity = x
+        x = self.conv(x)
+        up = self.up(identity)
+        x = x + up
+
+        return self.relu(x)
+
+        
 class Aggregator(nn.Module):
 
     def __init__(self, in_dim, bins):
