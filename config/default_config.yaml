@@ -8,7 +8,7 @@ defaults:
 
 experiment:
   project: CV_For_Autonomous_Driving
-  name: base_lr2e-3
+  name: base
   uuid: ${now:%m%d_%H%M%S}
   save_dir: ${hydra:runtime.cwd}/logs/                # log directory, will be created
   
@@ -28,7 +28,7 @@ loader:
 # AdamW
 optimizer:
   weight_decay: 1e-7
-  lr: 2e-3
+  lr: 1e-3
   # lr: 4e-3
   
 

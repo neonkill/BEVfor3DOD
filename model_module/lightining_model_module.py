@@ -80,7 +80,6 @@ class ModelModule(pl.LightningModule):
 
         for k, v in self.metrics.items():
             key, value = v.compute()
-            print(f'{prefix}/metrics/{key}', value)
             self.log(f'{prefix}/metrics/{key}', value)
             v.reset()
 
