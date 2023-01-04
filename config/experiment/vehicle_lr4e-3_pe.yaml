@@ -1,0 +1,19 @@
+# @package _global_
+defaults:
+  - override /model: twoCLS_PE_model
+  - override /data: nuscenes
+  - override /loss: vehicle_loss
+  - override /metrics: vehicle_metrics
+
+
+experiment:
+  name: vehicle_lr4e-3_pe
+    
+loader:
+  batch_size: 4
+
+optimizer:
+  lr: 4e-3
+
+trainer:
+  max_steps: 61530  #! batch_size 2: 123060
