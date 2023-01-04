@@ -1,0 +1,9 @@
+# for road
+road_weight: 1.0
+road:
+  _target_: model_module.losses.BinarySegmentationLoss_1ch
+
+  # class_idx: 0
+  label_indices: [[0,1]]
+  gamma: 2.0
+  alpha: -1.0

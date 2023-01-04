@@ -1,0 +1,4 @@
+road_iou:
+  _target_: model_module.metrics.IoUMetric
+  class_idx: 0
+  label_indices: [[0,1]]

@@ -1,5 +1,6 @@
 
 defaults:
+  - _self_
   - model: default_model
   - data: nuscenes
   - loss: default_loss

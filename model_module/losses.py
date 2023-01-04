@@ -68,6 +68,37 @@ class BinarySegmentationLoss(SigmoidFocalLoss):
 
         return loss.mean()
 
+class BinarySegmentationLoss_1ch(SigmoidFocalLoss):
+    def __init__(
+        self,
+        label_indices=None,
+        min_visibility=None,
+        alpha=-1.0,
+        gamma=2.0
+    ):
+        super().__init__(alpha=alpha, gamma=gamma, reduction='none')
+
+        self.label_indices = label_indices
+        self.min_visibility = min_visibility
+
+    def forward(self, pred, batch):
+        if isinstance(pred, dict):
+            pred = pred['bev']
+        print(pred.shape, label.shape)
+        label = batch['bev']
+
+        if self.label_indices is not None:
+            label = [label[:, idx].max(1, keepdim=True).values for idx in self.label_indices]
+            label = torch.cat(label, 1)
+
+        loss = super().forward(pred.contiguous(), label.contiguous())
+
+        if self.min_visibility is not None:
+            mask = batch['visibility'] >= self.min_visibility
+            loss = loss[mask[:, None]]
+
+        return loss.mean()
+
 
 class CenterLoss(SigmoidFocalLoss):
     def __init__(
