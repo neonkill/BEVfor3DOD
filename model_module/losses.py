@@ -8,6 +8,7 @@
 import torch
 import logging
 
+import torch.nn.functional as F
 from fvcore.nn import sigmoid_focal_loss
 
 
@@ -84,7 +85,6 @@ class BinarySegmentationLoss_1ch(SigmoidFocalLoss):
     def forward(self, pred, batch):
         if isinstance(pred, dict):
             pred = pred['bev']
-        print(pred.shape, label.shape)
         label = batch['bev']
 
         if self.label_indices is not None:
@@ -118,6 +118,38 @@ class CenterLoss(SigmoidFocalLoss):
         label = batch['center'].contiguous()
         loss = super().forward(pred, label)
 
+        if self.min_visibility is not None:
+            mask = batch['visibility'] >= self.min_visibility
+            loss = loss[mask[:, None]]
+
+        return loss.mean()
+
+
+class SigmoidCELoss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred, label):
+
+        if isinstance(pred, dict):
+            pred = pred['bev'][:,self.class_idx][:,None]        # b 1 h w
+
+        label = batch['bev']
+
+        if self.label_indices is not None:
+            label = [label[:, idx].max(1, keepdim=True).values for idx in self.label_indices]
+            label = torch.cat(label, 1)     # b 1 h w
+
+
+        num_pos = (label == 1).float().sum(dim=1).clamp(min=1.0)
+        num_neg = (label == 0).float().sum(dim=1)
+        pos_weight = (num_neg / num_pos).unsqueeze(1)
+
+        weight_loss = label * pos_weight + (1 - label)
+        loss = F.binary_cross_entropy_with_logits(pred, label, 
+                                                    reduction="mean", 
+                                                    weight=weight_loss)
+        
         if self.min_visibility is not None:
             mask = batch['visibility'] >= self.min_visibility
             loss = loss[mask[:, None]]

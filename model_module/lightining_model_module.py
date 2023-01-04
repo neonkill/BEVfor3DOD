@@ -104,19 +104,56 @@ class ModelModule(pl.LightningModule):
 
     def configure_optimizers(self, disable_scheduler=False):
 
-        # Define optimizer
-        opt = torch.optim.AdamW(self.fullmodel.parameters(), 
-                                    lr = self.optimizer_args.lr, 
-                                    weight_decay = self.optimizer_args.weight_decay)
+        if self.optimizer_args.dual_lr:
+            # Seperate param_groups using base_keywords, dft_keywards
+            bb_param, nbb_param = [], []
+            bb_keys, nbb_keys = set(), set()
+
+            for k, param in dict(self.fullmodel.named_parameters()).items():
+                if any(part in k for part in self.optimizer_args.bb_keywords):
+                    bb_param.append(param)
+                    bb_keys.add(k)
+                else:
+                    nbb_param.append(param)
+                    nbb_keys.add(k)
+        
+            # Define optimizer
+            opt = torch.optim.AdamW(bb_param, 
+                                        lr = self.optimizer_args.lr, 
+                                        weight_decay = self.optimizer_args.weight_decay)
+            opt.add_param_group({'params': nbb_param, 
+                                'lr': self.optimizer_args.lr*self.optimizer_args.bb_mult})
+        
+            # Define LR scheduler
+            '''
+            warmup: linear
+            warmup_iters: 500
+            warmup_ratio: 1.0/3
+            min_lr_ratio: 1e-3
+            35 epoch / 24 epoch
+            '''
+
+            sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, 
+                                                        T_max=self.scheduler_args.total_epochs,
+                                                        eta_min=1e-3)
+
+            return [opt], [{'scheduler': sch, 'interval': 'epoch'}]
+
+        
+        else:
+            # Define optimizer
+            opt = torch.optim.AdamW(self.fullmodel.parameters(), 
+                                        lr = self.optimizer_args.lr, 
+                                        weight_decay = self.optimizer_args.weight_decay)
 
 
-        # Define LR scheduler
-        sch = torch.optim.lr_scheduler.OneCycleLR(opt, 
-                                        max_lr=self.optimizer_args.lr,
-                                        total_steps=self.scheduler_args.total_steps,
-                                        pct_start=self.scheduler_args.pct_start,
-                                        div_factor=self.scheduler_args.div_factor,
-                                        cycle_momentum=self.scheduler_args.cycle_momentum,
-                                        final_div_factor=self.scheduler_args.final_div_factor)
+            # Define LR scheduler
+            sch = torch.optim.lr_scheduler.OneCycleLR(opt, 
+                                            max_lr=self.optimizer_args.lr,
+                                            total_steps=self.scheduler_args.total_steps,
+                                            pct_start=self.scheduler_args.pct_start,
+                                            div_factor=self.scheduler_args.div_factor,
+                                            cycle_momentum=self.scheduler_args.cycle_momentum,
+                                            final_div_factor=self.scheduler_args.final_div_factor)
 
-        return [opt], [{'scheduler': sch, 'interval': 'step'}]
+            return [opt], [{'scheduler': sch, 'interval': 'step'}]

@@ -7,13 +7,17 @@ defaults:
 
 
 experiment:
-  name: only_road
+  name: road_lr2e-4_CosAnneal
     
 loader:
   batch_size: 4
 
 optimizer:
-  lr: 4e-3
+  dual_lr: True
+  bb_keywords: ['layers']
+  bb_mult: 0.1
+  lr: 2e-4
 
-trainer:
-  max_steps: 61530  #! batch_size 2: 123060
+
+# lr 조절 2e-4 (2e-5)
+# lr scheduler..?

@@ -29,6 +29,7 @@ loader:
 # AdamW
 optimizer:
   weight_decay: 1e-7
+  dual_lr: False
   lr: 1e-3
   # lr: 4e-3
   
@@ -38,12 +39,14 @@ scheduler:
   div_factor: 10           # starts at lr / 10
   pct_start: 0.3           # reaches lr at 30% of total steps
   final_div_factor: 10     # ends at lr / 10 / 10
+  # total_epochs: ${trainer.max_epochs}
   total_steps: ${trainer.max_steps}
   cycle_momentum: False
 
 
 # lightning trainer
 trainer:
+  # max_epochs: 24
   max_steps: 30765  #! batch_size 2: 123060
   log_every_n_steps: 50
 
