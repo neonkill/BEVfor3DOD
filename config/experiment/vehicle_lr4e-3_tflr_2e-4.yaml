@@ -1,0 +1,33 @@
+# @package _global_
+defaults:
+  - override /model: twoCLS_PE_model
+  - override /data: nuscenes
+  - override /loss: vehicle_loss
+  - override /metrics: vehicle_metrics
+
+
+experiment:
+  name: vehicle_lr4e-3_tflr_2e-4
+    
+loader:
+  batch_size: 4
+
+
+optimizer:
+  dual_lr: True
+  bb_keywords: ['match']
+  bb_mult: 0.05
+  lr: 4e-3
+
+
+scheduler:
+  name: onecycle
+  div_factor: 10           # starts at lr / 10
+  pct_start: 0.3           # reaches lr at 30% of total steps
+  final_div_factor: 10     # ends at lr / 10 / 10
+  total_steps: ${trainer.max_steps}
+  cycle_momentum: False
+
+
+trainer:
+  max_steps: 61530
