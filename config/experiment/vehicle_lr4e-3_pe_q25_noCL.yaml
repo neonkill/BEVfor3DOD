@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - override /model: oneCLS_PE_model
+  - override /model: oneCLS_PE_q25_model
   - override /data: nuscenes200
   - override /loss: vehicle_loss_noCL
   - override /metrics: vehicle_metrics

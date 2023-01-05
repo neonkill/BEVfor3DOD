@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - override /model: oneCLS_PE_model
+  - override /model: oneCLS_PE_q25_model
   - override /data: nuscenes200
   - override /loss: vehicle_loss_noCL
   - override /metrics: vehicle_metrics
@@ -25,6 +25,6 @@ scheduler:
   final_div_factor: 10     # ends at lr / 10 / 10
   total_steps: ${trainer.max_steps}
   cycle_momentum: False
-  
+
 trainer:
   max_steps: 61530  #! batch_size 2: 123060
