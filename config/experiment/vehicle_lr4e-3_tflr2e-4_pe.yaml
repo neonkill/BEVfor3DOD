@@ -7,7 +7,7 @@ defaults:
 
 
 experiment:
-  name: vehicle_lr4e-3_tflr_2e-4
+  name: vehicle_lr4e-3_tflr2e-4_pe
     
 loader:
   batch_size: 4
