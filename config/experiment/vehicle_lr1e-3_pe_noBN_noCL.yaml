@@ -1,0 +1,29 @@
+# @package _global_
+defaults:
+  - override /model: oneCLS_PE_model
+  - override /data: nuscenes
+  - override /loss: vehicle_loss_noCL
+  - override /metrics: vehicle_metrics
+
+
+experiment:
+  name: vehicle_lr1e-3_pe_noBN_noCL
+    
+loader:
+  batch_size: 4
+
+optimizer:
+  dual_lr: False
+  lr: 1e-3
+
+scheduler:
+  name: onecycle
+  div_factor: 10           # starts at lr / 10
+  pct_start: 0.3           # reaches lr at 30% of total steps
+  final_div_factor: 10     # ends at lr / 10 / 10
+  total_steps: ${trainer.max_steps}
+  cycle_momentum: False
+
+
+trainer:
+  max_steps: 61530  #! batch_size 2: 123060

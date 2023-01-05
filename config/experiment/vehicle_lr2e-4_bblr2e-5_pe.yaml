@@ -23,6 +23,7 @@ optimizer:
 scheduler:
   name: cosannealing
   total_epochs: ${trainer.max_epochs}
+  eta_min: 2e-8
 
 
 trainer:

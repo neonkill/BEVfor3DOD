@@ -152,7 +152,7 @@ class ModelModule(pl.LightningModule):
 
             sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, 
                                                         T_max=self.scheduler_args.total_epochs,
-                                                        eta_min=1e-3)
+                                                        eta_min=self.scheduler_args.eta_min)
 
             return [opt], [{'scheduler': sch, 'interval': 'epoch'}]
 
