@@ -1,0 +1,46 @@
+
+
+_target_: model_module.model.fullmodel_pe.FullModel
+
+
+backbone:
+  _target_: model_module.model.backbones.aggregator.Agg16Agg4
+  
+  reduce_dim: 64
+  # chs: [32, 56, 160, 448, 448, 448]
+  chs: [160, 448, 448, 448]
+  
+  efficientnet: 
+    _target_: model_module.model.backbones.efficientnet.EfficientNetExtractor
+    
+    layers: ['reduction_4', 'reduction_5']
+    extra_layers: ['reduction_6', 'GAP']
+    chs: ${model.backbone.chs}
+    reduce_dim: ${model.backbone.reduce_dim}
+    image_height: ${data.image.h}
+    image_width: ${data.image.w}
+
+
+seg_extractor:
+  _target_: model_module.model.segmentation.semantic_feature_extractor_pe.SemanticFeatureExtractor
+  b_res: 16
+  image_height: ${data.image.h}
+  image_width: ${data.image.w}
+  bev_embedding: 
+    bev_height: ${data.bev.h}
+    bev_width: ${data.bev.w}
+    h_meters: ${data.bev.h_meters}
+    w_meters: ${data.bev.w_meters}
+    offset: ${data.bev.offset}
+    resolution: 16
+
+  embed_dims: ${model.backbone.reduce_dim}
+  n_head: 4
+  q_size: 16          #! caution
+  full_q_size: 128    #! caution
+
+
+seg_head:
+  _target_: model_module.model.segmentation.semantic_head.SemanticHead
+  dim: ${model.backbone.reduce_dim}
+  num_cls: 1

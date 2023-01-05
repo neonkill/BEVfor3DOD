@@ -116,8 +116,9 @@ class EfficientNetExtractor(torch.nn.Module):
             red_layers.append(nn.Sequential(
                                     nn.Conv2d(channel, reduce_dim, 
                                             kernel_size=1, stride=1, bias=False),
-                                    nn.BatchNorm2d(reduce_dim),
-                                    nn.ReLU(inplace=True)))
+                                    # nn.BatchNorm2d(reduce_dim),
+                                    # nn.ReLU(inplace=True)
+                                    ))
         self.red_layers = nn.Sequential(*red_layers)
         
         
