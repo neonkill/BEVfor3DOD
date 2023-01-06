@@ -8,6 +8,7 @@ defaults:
 
 experiment:
   name: vehicle_lr4e-3_pe_q25_noCL_cvt
+  uuid: '0106_043337'
     
 loader:
   batch_size: 4
