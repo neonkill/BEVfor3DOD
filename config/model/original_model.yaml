@@ -1,0 +1,52 @@
+
+
+_target_: bev_transformer.model.MultiHeadAttnOnly.RMLFullModel
+
+reduce_dim: 64
+outputs:
+  bev: [0, 1]
+
+
+backbone:
+  _target_: bev_transformer.model.backbones.aggregatedBB.Backbone
+    
+  efficientnet:
+    _target_: bev_transformer.model.backbones.efficientnet.EfficientNetExtractor
+
+    layer_names: ['reduction_3', 'reduction_4', 'reduction_5']
+    image_height: ${data.image.h}
+    image_width: ${data.image.w}
+    model_name: 'efficientnet-b4'
+    
+  fpn_channels_list: [56, 112, 272]
+  reduce_dim: ${model.reduce_dim}
+  only_low: True
+
+  
+
+  
+
+
+q_generator:
+  _target_: bev_transformer.model.modules.q_generator.QueryGenerator
+
+  bev_embedding: 
+    bev_height: ${data.bev.h}
+    bev_width: ${data.bev.w}
+    h_meters: ${data.bev.h_meters}
+    w_meters: ${data.bev.w_meters}
+    offset: ${data.bev.offset}
+    resolution: 8
+  
+  b_res: 32
+  image_height: ${data.image.h}
+  image_width: ${data.image.w}
+  dim: ${model.reduce_dim}
+  heads: 4
+
+  cross_attn:
+    _target_: bev_transformer.model.modules.q_generator.CrossAttention
+
+    dim: ${model.reduce_dim}
+    heads: ${model.q_generator.heads}
+    qkv_bias: True
