@@ -1,13 +1,13 @@
 # @package _global_
 defaults:
-  - override /model: oneCLS_PE_q25_model_cvt_sameLM
+  - override /model: twoCLS_PE_q25_model_cvt_sameLM 
   - override /data: nuscenes200
   - override /loss: center_loss
   - override /metrics: visibility_metrics
 
 
 experiment:
-  name: vehicle_lr4e-3_pe_q25_noCL_cvt_sameLM
+  name: vehicle_lr4e-3_pe_q25_cvt_sameLM
     
 loader:
   batch_size: 4
