@@ -13,12 +13,14 @@ from model_module.model.modules import Aggregator
 class FullModel(torch.nn.Module):
 
     def __init__(self, backbone, seg_extractor, seg_head, 
-                det_extractor=None, det_head=None):
+                det_extractor=None, det_head=None, outputs={'bev': [0, 1]}):
         super().__init__()
 
         self.backbone = backbone
         self.seg_extractor = seg_extractor
         self.seg_head = seg_head
+
+        self.outputs = outputs
 
         
 
@@ -34,8 +36,8 @@ class FullModel(torch.nn.Module):
         agg16 = rearrange(agg16, '(b n) ... -> b n ...', b=b, n=n)     # b n c h w
         seg_feat = self.seg_extractor(agg16, I, E)
         seg_maps = self.seg_head(seg_feat)
-
-        out = {k: pred[:, start:stop] for k, (start, stop) in self.outputs.items()}
+        
+        out = {k: seg_maps[:, start:stop] for k, (start, stop) in self.outputs.items()}
         
         return out
         
