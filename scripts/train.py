@@ -50,7 +50,7 @@ def main(cfg):
     ckpt_path = maybe_resume_training(cfg.experiment)
 
     if ckpt_path is not None:
-        model_module.backbone = load_backbone(ckpt_path)
+        model_module.fullmodel = load_backbone(ckpt_path, prefix='fullmodel')
 
     # Loggers and callbacks
     # logger = None
