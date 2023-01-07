@@ -35,4 +35,8 @@ class FullModel(torch.nn.Module):
         seg_feat = self.seg_extractor(agg16, I, E)
         seg_maps = self.seg_head(seg_feat)
 
-        return {'bev': seg_maps}
+        out = {k: pred[:, start:stop] for k, (start, stop) in self.outputs.items()}
+        
+        return out
+        
+        # return {'bev': seg_maps}

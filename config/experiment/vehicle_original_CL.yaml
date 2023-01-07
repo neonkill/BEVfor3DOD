@@ -27,6 +27,7 @@ scheduler:
   cycle_momentum: False
 
 trainer:
+  num_sanity_val_steps: 1
   max_steps: 61530
   gpus: 4
 
