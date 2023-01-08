@@ -7,7 +7,7 @@ defaults:
   - override /metrics: visibility_metrics
 
 experiment:
-  name: vehicle_original_CL_sameLMD
+  name: cvt_DLM_original_model
 
 loader:
   batch_size: 4       # mini batch size per 1 GPU

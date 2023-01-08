@@ -1,5 +1,7 @@
 
 
+dataset: 'nuscenes_dataset'
+
 num_classes: 12
 version: 'v1.0-trainval'
 dataset_dir: '/usr/src/nuscenes'

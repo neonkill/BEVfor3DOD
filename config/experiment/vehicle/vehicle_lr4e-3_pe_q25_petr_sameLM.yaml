@@ -8,6 +8,7 @@ defaults:
 
 experiment:
   name: vehicle_lr4e-3_pe_q25_petr_sameLM
+  uuid: '0107_083045'
     
 loader:
   batch_size: 4

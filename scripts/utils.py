@@ -49,7 +49,8 @@ def setup_model_module(cfg: DictConfig) -> ModelModule:
 
 
 def setup_data_module(cfg: DictConfig) -> DataModule:
-    return DataModule(cfg.data, cfg.loader)
+    return DataModule(cfg.data.dataset, cfg.data, cfg.loader)
+    # return DataModule(cfg.data, cfg.loader)
 
 
 def setup_experiment(cfg: DictConfig) -> Tuple[ModelModule, DataModule, Callable]:

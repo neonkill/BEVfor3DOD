@@ -11,17 +11,17 @@ from nuscenes.map_expansion.map_api import NuScenesMap
 from . import get_dataset_module_by_name
 
 
-def get_split(split):
-    path = Path(__file__).parent / 'splits' /  f'{split}.txt'
-    return path.read_text().strip().split('\n')
+# def get_split(split):
+#     path = Path(__file__).parent / 'splits' /  f'{split}.txt'
+#     return path.read_text().strip().split('\n')
 
 
 class DataModule(pl.LightningDataModule):
 
-    def __init__(self, data_cfg, loader_cfg):
+    def __init__(self, dataset, data_cfg, loader_cfg):
         super().__init__()
 
-        self.get_data = get_dataset_module_by_name('nuscenes_dataset').get_data
+        self.get_data = get_dataset_module_by_name(dataset).get_data
         self.data_cfg = data_cfg
         self.loader_cfg = loader_cfg
 
@@ -36,7 +36,8 @@ class DataModule(pl.LightningDataModule):
         if loader_config['num_workers'] == 0:
             loader_config['prefetch_factor'] = 2
 
-        return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
+        #! return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
+        return torch.utils.data.DataLoader(dataset, shuffle=shuffle, **loader_config)
 
 
     def train_dataloader(self, shuffle=True):
