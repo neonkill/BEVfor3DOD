@@ -35,6 +35,7 @@ class ModelModule(pl.LightningModule):
 
         #! 
         self.metrics.update(pred, batch)
+
         # for k, v in self.metrics.items():
             # v.update(pred, batch)
 
@@ -78,16 +79,16 @@ class ModelModule(pl.LightningModule):
         on_validation_start에서 train 할 때 저장된 metric logging 후 reset
         val 하면서 metric update 하고 val 끝나면 metric logging 후 reset
         """
-
         metrics = self.metrics.compute()
 
         for key, value in metrics.items():
-            if isinstance(value, dict):
-                for subkey, val in value.items():
-                    # print(f'{prefix}/metrics/{key}{subkey}', val[1])
-                    self.log(f'{prefix}/metrics/{key}{subkey}', val)
+            if len(value)>1:
+                print(f'{prefix}/metrics/{key}{value[0][0]:.1f}', value[0][1])
+                print(f'{prefix}/metrics/{key}{value[1][0]:.1f}', value[1][1])
+                self.log(f'{prefix}/metrics/{key}{value[0][0]:.1f}', value[0][1])
+                self.log(f'{prefix}/metrics/{key}{value[1][0]:.1f}', value[1][1])
             else:
-                # print(f'{prefix}/metrics/{key}', value[1])
+                print(f'{prefix}/metrics/{key}', value)
                 self.log(f'{prefix}/metrics/{key}', value)
 
         self.metrics.reset()
