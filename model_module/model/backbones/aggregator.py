@@ -59,3 +59,21 @@ class Agg16Agg4(torch.nn.Module):
         # agg4 = self.aggregator4(feats[0], feats[1:])    # B 64 h/4 w/4
         
         # return agg4, agg16
+
+
+class BB32(torch.nn.Module):
+
+    def __init__(self, efficientnet):
+        super().__init__()
+        
+        # reduce_dim = 64
+        # chs = [32, 56, 160, 448, 448, 448]
+
+        self.efficientnet = efficientnet
+        
+
+    def forward(self, x):
+        
+        feats = self.efficientnet(x)    # 4, 8, 16, 32, 64, GAP
+        
+        return feats[0]

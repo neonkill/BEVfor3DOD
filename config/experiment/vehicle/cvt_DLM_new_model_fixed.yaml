@@ -1,14 +1,14 @@
 # @package _global_
 defaults:
-  - override /model: twoCLS_PE_q25_model_cvt_sameLM
+  - override /model: PE_q25_model_cvt_sameLM
   - override /data: original_nuscenes
 
   - override /loss: center_loss
   - override /metrics: visibility_metrics
 
 experiment:
-  name: cvt_DLM_new_model
-  uuid: '0108_111403'
+  name: cvt_DLM_new_model_fixed
+  # uuid: '0108_111403'
 
 loader:
   batch_size: 4       # mini batch size per 1 GPU

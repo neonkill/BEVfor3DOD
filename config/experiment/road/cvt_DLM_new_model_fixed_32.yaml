@@ -1,13 +1,13 @@
 # @package _global_
 defaults:
-  - override /model: PE_q25_model_cvt_sameLM
+  - override /model: PE_q25_model_cvt32_sameLM
   - override /data: original_nuscenes
 
   - override /loss: road_loss
   - override /metrics: road_metrics
 
 experiment:
-  name: cvt_DLM_new_model_fixed
+  name: cvt_DLM_new_model_fixed_32
 
 loader:
   batch_size: 4       # mini batch size per 1 GPU
@@ -33,3 +33,4 @@ trainer:
 model:
   outputs:
     bev: [0, 1]
+#     center: [1, 2]

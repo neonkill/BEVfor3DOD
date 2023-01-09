@@ -30,13 +30,20 @@ MODELS = {
         ('reduction_4', (16, 21)),
         ('reduction_5', (21, 23))
     ],
-    'efficientnet-b4': [
-        ('reduction_1', (0, 6)),    # 2
-        ('reduction_2', (6, 10)),    # 4
-        ('reduction_3', (10, 22)),   # 8
-        ('reduction_4', (22, 32)),  # 16
-        ('reduction_5', (32, 33))   # 32
+    'efficientnet-b4': [            # 끝까지 안내려 가는 모델
+        ('reduction_1', (0, 3)),    # 2
+        ('reduction_2', (3, 7)),    # 4
+        ('reduction_3', (7, 11)),   # 8
+        ('reduction_4', (11, 23)),  # 16
+        ('reduction_5', (23, 32))   # 32
     ],
+    # 'efficientnet-b4': [          # 끝까지 내려가는 모델
+    #     ('reduction_1', (0, 6)),    # 2
+    #     ('reduction_2', (6, 10)),    # 4
+    #     ('reduction_3', (10, 22)),   # 8
+    #     ('reduction_4', (22, 32)),  # 16
+    #     ('reduction_5', (32, 33))   # 32
+    # ],
 
 }
 
@@ -57,7 +64,7 @@ class EfficientNetExtractor(torch.nn.Module):
         # [f1, f2], where f1 is 'reduction_1', which is shape [b, d, 128, 128]
         backbone(x)
     """
-    def __init__(self, layers, extra_layers, chs, reduce_dim, image_height, image_width, model_name='efficientnet-b4'):
+    def __init__(self, layers, chs, reduce_dim, image_height, image_width, extra_layers=None, model_name='efficientnet-b4'):
         super().__init__()
 
         assert model_name in MODELS
@@ -72,9 +79,10 @@ class EfficientNetExtractor(torch.nn.Module):
                 idx_max = max(idx_max, i)
                 layer_to_idx[layer_name] = i
 
-        length = max(layer_to_idx.values())
-        for i, layer in enumerate(extra_layers):
-            layer_to_idx[layer] = length + i + 1
+        if extra_layers is not None:
+            length = max(layer_to_idx.values())
+            for i, layer in enumerate(extra_layers):
+                layer_to_idx[layer] = length + i + 1
 
         # We can set memory efficient swish to false since we're using checkpointing
         net = EfficientNet.from_pretrained(model_name)
@@ -90,25 +98,26 @@ class EfficientNetExtractor(torch.nn.Module):
             block = SequentialWithArgs(*[(net._blocks[i], [i * drop]) for i in range(l, r)])
             blocks.append(block)
 
-        for i, layer in enumerate(extra_layers):
-            idx = (i) + len(layers)
-            if layer == 'GAP':
-                blocks.append(nn.Sequential(
-                            nn.AdaptiveAvgPool2d(1),
-                            nn.Conv2d(chs[idx], chs[idx], 
-                                    kernel_size=1, stride=1, bias=False),
-                            nn.BatchNorm2d(chs[idx]),
-                            nn.ReLU(inplace=True)))
-            else:
-                blocks.append(nn.Sequential(
-                            nn.Conv2d(chs[idx], chs[idx], 
-                                    kernel_size=3, stride=2,
-                                    padding=1, bias=False),
-                            nn.BatchNorm2d(chs[idx]),
-                            nn.ReLU(inplace=True)))
+        if extra_layers is not None:
+            for i, layer in enumerate(extra_layers):
+                idx = (i) + len(layers)
+                if layer == 'GAP':
+                    blocks.append(nn.Sequential(
+                                nn.AdaptiveAvgPool2d(1),
+                                nn.Conv2d(chs[idx], chs[idx], 
+                                        kernel_size=1, stride=1, bias=False),
+                                nn.BatchNorm2d(chs[idx]),
+                                nn.ReLU(inplace=True)))
+                else:
+                    blocks.append(nn.Sequential(
+                                nn.Conv2d(chs[idx], chs[idx], 
+                                        kernel_size=3, stride=2,
+                                        padding=1, bias=False),
+                                nn.BatchNorm2d(chs[idx]),
+                                nn.ReLU(inplace=True)))
                             
         self.layers = nn.Sequential(*blocks)
-        self.layer_names = layers + extra_layers
+        self.layer_names = layers + extra_layers if extra_layers is not None else layers
         self.idx_pick = [layer_to_idx[l] for l in self.layer_names]
 
         red_layers = []
