@@ -8,6 +8,7 @@ defaults:
 
 experiment:
   name: cvt_DLM_new_model
+  uuid: '0108_111403'
 
 loader:
   batch_size: 4       # mini batch size per 1 GPU
