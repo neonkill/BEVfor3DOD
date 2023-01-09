@@ -33,9 +33,10 @@ class ModelModule(pl.LightningModule):
         pred = self(batch)
         loss, loss_details = self.loss_func(pred, batch)
 
-        # self.metrics.update(pred, batch)
-        for k, v in self.metrics.items():
-            v.update(pred, batch)
+        #! 
+        self.metrics.update(pred, batch)
+        # for k, v in self.metrics.items():
+            # v.update(pred, batch)
 
         if self.trainer is not None:
             self.log(f'{prefix}/total_loss', loss.detach(), on_step=on_step, on_epoch=True)
