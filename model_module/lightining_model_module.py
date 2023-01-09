@@ -83,12 +83,12 @@ class ModelModule(pl.LightningModule):
 
         for key, value in metrics.items():
             if len(value)>1:
-                print(f'{prefix}/metrics/{key}{value[0][0]:.1f}', value[0][1])
-                print(f'{prefix}/metrics/{key}{value[1][0]:.1f}', value[1][1])
+                # print(f'{prefix}/metrics/{key}{value[0][0]:.1f}', value[0][1])
+                # print(f'{prefix}/metrics/{key}{value[1][0]:.1f}', value[1][1])
                 self.log(f'{prefix}/metrics/{key}{value[0][0]:.1f}', value[0][1])
                 self.log(f'{prefix}/metrics/{key}{value[1][0]:.1f}', value[1][1])
             else:
-                print(f'{prefix}/metrics/{key}', value)
+                # print(f'{prefix}/metrics/{key}', value)
                 self.log(f'{prefix}/metrics/{key}', value)
 
         self.metrics.reset()
