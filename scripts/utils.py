@@ -4,13 +4,14 @@
 # https://github.com/bradyz/cross_view_transformers/blob/master/LICENSE
 # -----------------------------------------------------------------------
 
+from tokenize import group
 import torch
 
 from hydra.utils import instantiate
 from omegaconf import OmegaConf, DictConfig
 from torchmetrics import MetricCollection
 from pathlib import Path
-
+import copy
 from model_module.losses import MultipleLoss
 from model_module.lightining_model_module import ModelModule
 from data_module.lightning_data_module import DataModule
@@ -35,11 +36,18 @@ def setup_config(cfg: DictConfig, override: Optional[Callable] = None):
 def setup_network(cfg: DictConfig):
     return instantiate(cfg.model)
 
-    
+def setup_compute_groups(cfg: DictConfig):
+    # return [['road_iou'], ['lane_iou'], ['vehicle_iou']]
+    groups = []
+    for k, _ in instantiate(cfg.metrics).items():
+        groups.append([k])
+
+    return groups
+
 def setup_model_module(cfg: DictConfig) -> ModelModule:
     backbone = setup_network(cfg)
     loss_func = MultipleLoss(instantiate(cfg.loss))
-    metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()})
+    metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()},compute_groups=setup_compute_groups(cfg))
 
     model_module = ModelModule(backbone, loss_func, metrics,
                                cfg.optimizer, cfg.scheduler,

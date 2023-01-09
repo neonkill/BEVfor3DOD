@@ -2,16 +2,19 @@
 defaults:
   - _self_
   - model: default_model
-  - data: debug/original_nuscenes_debug
+  # - data: debug/original_nuscenes_debug
+  - data: nuscenes
   - loss: default_loss
+  # - metrics: road_metrics
   - metrics: default_metrics
+
 
 
 experiment:
   project: CV_For_Autonomous_Driving
-  name: base
-  uuid: ${now:%m%d_%H%M%S}
-  # save_dir: ${hydra:runtime.cwd}/logs/                # log directory, will be created
+  name: base_1e-3
+  uuid: '0103_170521'
+  save_dir: /usr/src/CV_For_Autonomous_Driving/logs/                           # log directory, will be created
   
 
   seed: 2022
@@ -20,10 +23,10 @@ experiment:
 
 
 loader:
-  batch_size: 8         # per gpu
-  num_workers: 4
+  batch_size: 4         # per gpu
+  num_workers: 8
   pin_memory: True
-  prefetch_factor: 4
+  prefetch_factor: 8
 
 
 # AdamW

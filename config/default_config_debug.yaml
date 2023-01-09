@@ -11,7 +11,7 @@ experiment:
   project: CV_For_Autonomous_Driving
   name: base
   uuid: ${now:%m%d_%H%M%S}
-  # save_dir: ${hydra:runtime.cwd}/logs/                # log directory, will be created
+  save_dir: /usr/src/CV_For_Autonomous_Driving/logs/              # log directory, will be created
   
 
   seed: 2022

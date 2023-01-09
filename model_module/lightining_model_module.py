@@ -79,19 +79,16 @@ class ModelModule(pl.LightningModule):
         val 하면서 metric update 하고 val 끝나면 metric logging 후 reset
         """
 
-        # for k, v in self.metrics.items():
-        #     key, value = v.compute()
-        #     self.log(f'{prefix}/metrics/{k}', value)
-        #     v.reset()
-
         metrics = self.metrics.compute()
 
         for key, value in metrics.items():
             if isinstance(value, dict):
                 for subkey, val in value.items():
-                    self.log(f'{prefix}/metrics/{key}{subkey}', val)
+                    # print(f'{prefix}/metrics/{key}{subkey}', val[1])
+                    self.log(f'{prefix}/metrics/{key}{subkey}', val[1])
             else:
-                self.log(f'{prefix}/metrics/{key}', value)
+                # print(f'{prefix}/metrics/{key}', value[1])
+                self.log(f'{prefix}/metrics/{key}', value[1])
 
         self.metrics.reset()
 

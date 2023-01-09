@@ -62,6 +62,8 @@ def main(cfg):
     print(len(eval_loader))
 
     # evaluation (pl version)
+    #! For Debug only 5 batch
+    #! trainer = pl.Trainer(logger=logger, accelerator='gpu', gpus=[0],fast_dev_run=True)
     trainer = pl.Trainer(logger=logger, accelerator='gpu', gpus=[0])
     trainer.test(model=model_module,
                 dataloaders=eval_loader)
