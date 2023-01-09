@@ -85,10 +85,10 @@ class ModelModule(pl.LightningModule):
             if isinstance(value, dict):
                 for subkey, val in value.items():
                     # print(f'{prefix}/metrics/{key}{subkey}', val[1])
-                    self.log(f'{prefix}/metrics/{key}{subkey}', val[1])
+                    self.log(f'{prefix}/metrics/{key}{subkey}', val)
             else:
                 # print(f'{prefix}/metrics/{key}', value[1])
-                self.log(f'{prefix}/metrics/{key}', value[1])
+                self.log(f'{prefix}/metrics/{key}', value)
 
         self.metrics.reset()
 
