@@ -52,10 +52,11 @@ def main(cfg):
 
     # load model
     ckpt_path = resume_training(cfg.experiment)
-    ckpt = torch.load(ckpt_path)
-    state_dict = remove_prefix(ckpt['state_dict'], 'fullmodel')
-
-    model_module.fullmodel.load_state_dict(state_dict)
+    if ckpt_path is not None:
+        ckpt = torch.load(ckpt_path)
+        state_dict = remove_prefix(ckpt['state_dict'], 'fullmodel')
+        model_module.fullmodel.load_state_dict(state_dict)
+        
     model_module.to('cuda')
 
     print('loaded pretrained network! Start Evaluation!')
