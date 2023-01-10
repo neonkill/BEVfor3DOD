@@ -13,7 +13,9 @@ import torch.nn as nn
 
 from efficientnet_pytorch import EfficientNet
 
-# 다 내려가는 모델
+
+# Precomputed aliases
+# 처음이 다 내려가는거, 두번째가 다 안내려가는거
 MODELS = {
     'efficientnet-b0': [
         ('reduction_1', (0, 3)),
@@ -22,7 +24,13 @@ MODELS = {
         ('reduction_4', (11, 15)),
         ('reduction_5', (15, 17))
     ],
-
+    # 'efficientnet-b0': [
+    #     ('reduction_1', (0, 2)),
+    #     ('reduction_2', (2, 4)),
+    #     ('reduction_3', (4, 6)),
+    #     ('reduction_4', (6, 12)),
+    #     ('reduction_5', (12, 16))
+    # ],
     'efficientnet-b2': [
         ('reduction_1', (0, 5)),
         ('reduction_2', (5, 8)),
@@ -30,21 +38,34 @@ MODELS = {
         ('reduction_4', (16, 21)),
         ('reduction_5', (21, 23))
     ],
-    'efficientnet-b4': [            # 끝까지 안내려 가는 모델
-        ('reduction_1', (0, 3)),    # 2
-        ('reduction_2', (3, 7)),    # 4
-        ('reduction_3', (7, 11)),   # 8
-        ('reduction_4', (11, 23)),  # 16
-        ('reduction_5', (23, 32))   # 32
-    ],
-    # 'efficientnet-b4': [          # 끝까지 내려가는 모델
-    #     ('reduction_1', (0, 6)),    # 2
-    #     ('reduction_2', (6, 10)),    # 4
-    #     ('reduction_3', (10, 22)),   # 8
-    #     ('reduction_4', (22, 32)),  # 16
-    #     ('reduction_5', (32, 33))   # 32
+    # 'efficientnet-b2': [
+    #     ('reduction_1', (0, 3)),
+    #     ('reduction_2', (3, 6)),
+    #     ('reduction_3', (6, 9)),
+    #     ('reduction_4', (9, 17)),
+    #     ('reduction_5', (17, 22))
     # ],
-
+    'efficientnet-b3': [
+        ('reduction_1', (0, 3)),
+        ('reduction_2', (3, 6)),
+        ('reduction_3', (6, 9)),
+        ('reduction_4', (9, 19)),
+        ('reduction_5', (19, 24))
+    ],
+    # 'efficientnet-b4': [
+    #     ('reduction_1', (0, 3)),    # 2
+    #     ('reduction_2', (3, 7)),    # 4
+    #     ('reduction_3', (7, 11)),   # 8
+    #     ('reduction_4', (11, 23)),  # 16
+    #     ('reduction_5', (23, 32))   # 32
+    # ],
+    'efficientnet-b4': [
+        ('reduction_1', (0, 6)),    # 2
+        ('reduction_2', (6, 10)),    # 4
+        ('reduction_3', (10, 22)),   # 8
+        ('reduction_4', (22, 32)),  # 16
+        ('reduction_5', (32, 33))   # 32
+    ]
 }
 
 
@@ -64,25 +85,21 @@ class EfficientNetExtractor(torch.nn.Module):
         # [f1, f2], where f1 is 'reduction_1', which is shape [b, d, 128, 128]
         backbone(x)
     """
-    def __init__(self, layers, chs, reduce_dim, image_height, image_width, extra_layers=None, model_name='efficientnet-b4'):
+    def __init__(self, layer_names, image_height, image_width, model_name='efficientnet-b4'):
         super().__init__()
 
         assert model_name in MODELS
-        assert all(k in [k for k, v in MODELS[model_name]] for k in layers)
+        assert all(k in [k for k, v in MODELS[model_name]] for k in layer_names)
 
         idx_max = -1
         layer_to_idx = {}
 
         # Find which blocks to return
         for i, (layer_name, _) in enumerate(MODELS[model_name]):
-            if layer_name in layers:
+            if layer_name in layer_names:
                 idx_max = max(idx_max, i)
                 layer_to_idx[layer_name] = i
-
-        if extra_layers is not None:
-            length = max(layer_to_idx.values())
-            for i, layer in enumerate(extra_layers):
-                layer_to_idx[layer] = length + i + 1
+        # print('layer to idx', layer_to_idx)     #! debugging
 
         # We can set memory efficient swish to false since we're using checkpointing
         net = EfficientNet.from_pretrained(model_name)
@@ -96,55 +113,20 @@ class EfficientNetExtractor(torch.nn.Module):
             l, r = MODELS[model_name][idx][1]
 
             block = SequentialWithArgs(*[(net._blocks[i], [i * drop]) for i in range(l, r)])
+            # print('****** using *******')
+            # print(block)        #! debugging
+            # print('*******************')
             blocks.append(block)
 
-        if extra_layers is not None:
-            for i, layer in enumerate(extra_layers):
-                idx = (i) + len(layers)
-                if layer == 'GAP':
-                    blocks.append(nn.Sequential(
-                                nn.AdaptiveAvgPool2d(1),
-                                nn.Conv2d(chs[idx], chs[idx], 
-                                        kernel_size=1, stride=1, bias=False),
-                                nn.BatchNorm2d(chs[idx]),
-                                nn.ReLU(inplace=True)))
-                else:
-                    blocks.append(nn.Sequential(
-                                nn.Conv2d(chs[idx], chs[idx], 
-                                        kernel_size=3, stride=2,
-                                        padding=1, bias=False),
-                                nn.BatchNorm2d(chs[idx]),
-                                nn.ReLU(inplace=True)))
-                            
         self.layers = nn.Sequential(*blocks)
-        self.layer_names = layers + extra_layers if extra_layers is not None else layers
-        self.idx_pick = [layer_to_idx[l] for l in self.layer_names]
+        self.layer_names = layer_names
+        self.idx_pick = [layer_to_idx[l] for l in layer_names]
 
-        red_layers = []
-        for channel in chs:
-            red_layers.append(nn.Sequential(
-                                    nn.Conv2d(channel, reduce_dim, 
-                                            kernel_size=1, stride=1, bias=False),
-                                    nn.BatchNorm2d(reduce_dim),
-                                    nn.ReLU(inplace=True)
-                                    ))
-        self.red_layers = nn.Sequential(*red_layers)
-        
-        
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+        # Pass a dummy tensor to precompute intermediate shapes
+        dummy = torch.rand(1, 3, image_height, image_width)
+        output_shapes = [x.shape for x in self(dummy)]
 
-        # # Pass a dummy tensor to precompute intermediate shapes
-        # dummy = torch.rand(2, 3, image_height, image_width)
-        # output_shapes = [x.shape for x in self(dummy)]
-
-        # self.output_shapes = output_shapes
-
-        
+        self.output_shapes = output_shapes
 
     def forward(self, x):
         if self.training:
@@ -157,10 +139,10 @@ class EfficientNetExtractor(torch.nn.Module):
                 x = torch.utils.checkpoint.checkpoint(layer, x)
             else:
                 x = layer(x)
-            # print(x.shape)
+
             result.append(x)
 
-        return [self.red_layers[i](result[idx]) for i, idx in enumerate(self.idx_pick)]
+        return [result[i] for i in self.idx_pick]
 
 
 class SequentialWithArgs(nn.Sequential):
@@ -177,3 +159,38 @@ class SequentialWithArgs(nn.Sequential):
             x = l(x, *a)
 
         return x
+
+
+if __name__ == '__main__':
+    """
+    Helper to generate aliases for efficientnet backbones
+    """
+    device = torch.device('cuda')
+    dummy = torch.rand(6, 3, 224, 480).to(device)
+
+    for model_name in ['efficientnet-b0', 'efficientnet-b4']:
+        net = EfficientNet.from_pretrained(model_name)
+        net = net.to(device)
+        net.set_swish(False)
+
+        drop = net._global_params.drop_connect_rate / len(net._blocks)
+        conv = nn.Sequential(net._conv_stem, net._bn0, net._swish)
+
+        record = list()
+
+        x = conv(dummy)
+        px = x
+        pi = 0
+
+        # Terminal early to save computation
+        for i, block in enumerate(net._blocks):
+            x = block(x, i * drop)
+
+            if px.shape[-2:] != x.shape[-2:]:
+                record.append((f'reduction_{len(record)+1}', (pi, i+1)))
+
+                pi = i + 1
+                px = x
+
+        print(model_name, ':', {k: v for k, v in record})
+

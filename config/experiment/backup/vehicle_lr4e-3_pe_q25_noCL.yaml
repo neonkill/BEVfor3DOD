@@ -26,3 +26,4 @@ scheduler:
   
 trainer:
   max_steps: 61530  #! batch_size 2: 123060
+  num_sanity_val_steps: 2.0 #! DEBUG

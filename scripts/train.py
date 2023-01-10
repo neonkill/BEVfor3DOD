@@ -36,6 +36,7 @@ def maybe_resume_training(experiment):
 
 @hydra.main(config_path=CONFIG_PATH, config_name=CONFIG_NAME)
 def main(cfg):
+    print(cfg)
     setup_config(cfg)
 
     pl.seed_everything(cfg.experiment.seed, workers=True)

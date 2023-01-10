@@ -8,7 +8,7 @@ defaults:
 
 experiment:
   name: vehicle_lr4e-3_pe_q25_noCL_cvt
-  uuid: '0106_043337'
+  # uuid: '0106_043337'
     
 loader:
   batch_size: 4
@@ -27,3 +27,4 @@ scheduler:
   
 trainer:
   max_steps: 61530  #! batch_size 2: 123060
+
