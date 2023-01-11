@@ -1,13 +1,13 @@
 # @package _global_
 defaults:
-  - override /model: agg_methods/agg32_4to32
+  - override /model: agg_methods/agg16_16toGAP
   - override /data: original_nuscenes
 
-  - override /loss: road_loss
-  - override /metrics: road_metrics
+  - override /loss: center_loss
+  - override /metrics: visibility_metrics
 
 experiment:
-  name: agg32_4to32
+  name: agg16_16toGAP
 
 loader:
   batch_size: 4       # mini batch size per 1 GPU
@@ -33,4 +33,4 @@ trainer:
 model:
   outputs:
     bev: [0, 1]
-#     center: [1, 2]
+    center: [1, 2]
