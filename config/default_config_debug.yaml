@@ -2,7 +2,7 @@
 defaults:
   - _self_
   - model: default_model
-  - data: debug/nuscenes_debug
+  - data: debug/original_nuscenes_debug
   - loss: default_loss
   - metrics: default_metrics
 

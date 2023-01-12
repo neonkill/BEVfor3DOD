@@ -254,8 +254,9 @@ class NuScenesDataset(torch.utils.data.Dataset):
         #     egocams[cam]['translation'] for cam in range(len(cams))
         # ], 0)
 
-        ego2global_rotation = egocams['rotation']
-        ego2global_translation = egocams['translation']
+        # ego2global_rotation = egocams['rotation']
+        # ego2global_translation = egocams['translation']
+
         trans = -np.array(ego2global_translation)
         rot = Quaternion(ego2global_rotation).inverse
         gt_boxes = list()

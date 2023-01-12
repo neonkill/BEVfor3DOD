@@ -37,7 +37,7 @@ class DataModule(pl.LightningDataModule):
             loader_config['prefetch_factor'] = 2
 
         #! return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
-        return torch.utils.data.DataLoader(dataset, shuffle=shuffle, **loader_config)
+        return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
 
 
     def train_dataloader(self, shuffle=True):
@@ -57,34 +57,48 @@ def collate_fn(batchs):
     centers, visibilitys = [], []
     depths, cam_idxs, images = [], [], []
     intrinsics, extrinsics = [], []
-    gt_boxs, gt_labels = [], []
+    gt_boxes, gt_labels = [], []
+    sensor2sensor_mats = []
+    sensor2ego_mats = []
+    ida_mats = []
+    img_metas = []
+
 
     for batch in batchs:
         bevs.append(batch['bev'])
         views.append(batch['view'])
         centers.append(batch['center'])
         visibilitys.append(batch['visibility'])
-        # depths.append(batch['depth'])
+        depths.append(batch['depths'])
         cam_idxs.append(batch['cam_idx'])
         images.append(batch['image'])
         intrinsics.append(batch['intrinsics'])
         extrinsics.append(batch['extrinsics'])
-        # gt_boxs.append(batch['gt_box'])
-        # gt_labels.append(batch['gt_label'])
+        gt_boxes.append(batch['gt_boxes'])
+        gt_labels.append(batch['gt_labels'])
+        sensor2sensor_mats.append(batch['sensor2sensor_mats'])
+        sensor2ego_mats.append(batch['sensor2ego_mats'])
+        ida_mats.append(batch['ida_mats'])
+        img_metas.append(batch['img_metas'])
+
 
     results = {}
     results['bev'] = torch.stack(bevs, dim=0)
     results['view'] = torch.stack(views, dim=0)
     results['center'] = torch.stack(centers, dim=0)
     results['visibility'] = torch.stack(visibilitys, dim=0)
-    # results['depth'] = torch.stack(depths, dim=0)
+    results['depths'] = torch.stack(depths, dim=0)
     results['cam_idx'] = torch.stack(cam_idxs, dim=0)
     results['image'] = torch.stack(images, dim=0)
     results['intrinsics'] = torch.stack(intrinsics, dim=0)
     results['extrinsics'] = torch.stack(extrinsics, dim=0)
+    results['sensor2sensor_mats'] = torch.stack(sensor2sensor_mats, dim=0)
+    results['sensor2ego_mats'] = torch.stack(sensor2ego_mats, dim=0)
+    results['ida_mats'] = torch.stack(ida_mats, dim=0)
 
-    # results['gt_box'] = gt_boxs
-    # results['gt_label'] = gt_labels
+    results['img_metas'] = img_metas
+    results['gt_boxes'] = gt_boxes
+    results['gt_labels'] = gt_labels
 
     return results
 
