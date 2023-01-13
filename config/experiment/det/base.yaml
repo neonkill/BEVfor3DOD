@@ -1,0 +1,41 @@
+# @package _global_
+defaults:
+  # - override /model: agg_methods/agg32_32toGAP
+  - override /data: debug/original_nuscenes_debug
+
+  # - override /loss: center_loss
+  # - override /metrics: visibility_metrics
+
+experiment:
+  name: base
+  uuid: '0112_140614'
+
+loader:
+  batch_size: 4       # mini batch size per 1 GPU
+  num_workers: 8
+  prefetch_factor: 8
+
+# optimizer:
+#   dual_lr: False
+#   lr: 4e-3
+
+# scheduler:
+#   name: onecycle
+#   div_factor: 10           # starts at lr / 10
+#   pct_start: 0.3           # reaches lr at 30% of total steps
+#   final_div_factor: 10     # ends at lr / 10 / 10
+#   total_steps: ${trainer.max_steps}
+#   cycle_momentum: False
+
+trainer:
+  max_epochs: 24
+  # max_steps: 61530
+  gpus: 4
+  # num_sanity_val_steps: -1
+  # check_val_every_n_epoch: 6
+
+
+# model:
+#   outputs:
+#     bev: [0, 1]
+#     center: [1, 2]

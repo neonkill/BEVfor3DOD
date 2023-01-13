@@ -35,6 +35,6 @@ image:
   # w: 1600
   # top_crop: 0
 
-  h: 310
+  h: 256
   w: 704
   top_crop: 54

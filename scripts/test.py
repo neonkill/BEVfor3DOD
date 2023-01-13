@@ -13,7 +13,7 @@ from utils import setup_config, setup_experiment, remove_prefix
 
 log = logging.getLogger(__name__)
 
-CONFIG_PATH = '/usr/src/CV_For_Autonomous_Driving/config'
+CONFIG_PATH = '/ws/CV_For_Autonomous_Driving/config'
 CONFIG_NAME = 'default_config.yaml'
 
 
@@ -48,7 +48,7 @@ def main(cfg):
 
     # Create and load model/data
     model_module, data_module = setup_experiment(cfg)
-    eval_loader = data_module.eval_dataloader()
+    # eval_loader = data_module.eval_dataloader()
 
     # load model
     ckpt_path = resume_training(cfg.experiment)
@@ -60,14 +60,17 @@ def main(cfg):
     model_module.to('cuda')
 
     print('loaded pretrained network! Start Evaluation!')
-    print(len(eval_loader))
+    # print(len(eval_loader))
 
     # evaluation (pl version)
     #! For Debug only 5 batch
-    trainer = pl.Trainer(logger=logger, accelerator='gpu', gpus=[0],fast_dev_run=True)
+    # trainer = pl.Trainer(logger=logger, accelerator='gpu', gpus=[0],fast_dev_run=True)
+    trainer = pl.Trainer(logger=logger, accelerator='gpu', gpus=[0])
     # trainer = pl.Trainer(logger=logger, accelerator='gpu', gpus=[0])
-    trainer.test(model=model_module,
-                dataloaders=eval_loader)
+    # trainer.test(model=model_module)
+    # trainer.test(model=model_module,
+    #             dataloaders=eval_loader)
+    trainer.test(model=model_module, datamodule=data_module)
 
 
 

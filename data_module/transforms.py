@@ -178,6 +178,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         Note: we invert I and E here for convenience.
         """
         images = list()
+        images_before_crop = list() #!
         intrinsics = list()
         sensor2sensor_mats = list()
         sensor2ego_mats = list()
@@ -201,6 +202,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
             image = Image.open(self.dataset_dir / image_path)
 
             image_new = image.resize((w_resize, h_resize), resample=Image.BILINEAR)
+            images_before_crop.append(self.img_transform(image_new))    #!
             image_new = image_new.crop((0, top_crop, image_new.width, image_new.height))
 
             resize = [w_resize/1600, h_resize/900]
@@ -249,6 +251,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         return {
             'cam_idx': torch.LongTensor(sample.cam_ids),
             'image': torch.stack(images, 0),
+            'images_before_crop': torch.stack(images_before_crop, 0),
             'intrinsics': torch.stack(intrinsics, 0),
             'extrinsics': torch.tensor(np.float32(sample.extrinsics)),
             'sensor2sensor_mats': torch.stack(sensor2sensor_mats, 0),

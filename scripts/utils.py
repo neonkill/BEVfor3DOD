@@ -45,14 +45,15 @@ def setup_compute_groups(cfg: DictConfig):
     return groups
 
 def setup_model_module(cfg: DictConfig) -> ModelModule:
-    backbone = setup_network(cfg)
-    loss_func = MultipleLoss(instantiate(cfg.loss))
-    metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()},compute_groups=setup_compute_groups(cfg))
+    # backbone = setup_network(cfg)
+    # loss_func = MultipleLoss(instantiate(cfg.loss))
+    # metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()},compute_groups=setup_compute_groups(cfg))
     # metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()})
     
-    model_module = ModelModule(backbone, loss_func, metrics,
-                               cfg.optimizer, cfg.scheduler,
-                               cfg=cfg)
+    model_module = ModelModule(cfg=cfg)
+    # model_module = ModelModule(backbone, loss_func, metrics,
+    #                            cfg.optimizer, cfg.scheduler,
+    #                            cfg=cfg)
 
     return model_module
 

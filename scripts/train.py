@@ -16,7 +16,7 @@ from utils import setup_config, setup_experiment, load_backbone
 log = logging.getLogger(__name__)
 
 # CONFIG_PATH = Path.cwd() / 'config'
-CONFIG_PATH = '/usr/src/CV_For_Autonomous_Driving/config'
+CONFIG_PATH = '/ws/CV_For_Autonomous_Driving/config'
 CONFIG_NAME = 'default_config.yaml'
 
 
@@ -36,7 +36,7 @@ def maybe_resume_training(experiment):
 
 @hydra.main(config_path=CONFIG_PATH, config_name=CONFIG_NAME)
 def main(cfg):
-    print(cfg)
+    # print(cfg)
     setup_config(cfg)
 
     pl.seed_everything(cfg.experiment.seed, workers=True)
