@@ -240,10 +240,10 @@ class DetNuscEvaluator():
             boxes, scores, labels = det
             boxes = boxes
             sample_token = img_metas[sample_id]['token']
-            trans = np.array(img_metas[sample_id]['ego2global_translation'].cpu())
+            trans = np.array(img_metas[sample_id]['ego2global_translation'])
             # print(img_metas[sample_id]['ego2global_rotation'].shape)
             # print(img_metas[sample_id]['ego2global_rotation'].cpu())
-            rot = Quaternion(np.array(img_metas[sample_id]['ego2global_rotation'].cpu()))
+            rot = Quaternion(np.array(img_metas[sample_id]['ego2global_rotation']))
             annos = list()
             for i, box in enumerate(boxes):
                 name = mapped_class_names[labels[i]]

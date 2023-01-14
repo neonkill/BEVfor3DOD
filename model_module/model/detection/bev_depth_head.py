@@ -389,8 +389,11 @@ class BEVDepthHead(CenterHead):
             list[dict]: Decoded bbox, scores and labels after nms.
         """
         rets = []
+        # print(len(preds_dicts))
         for task_id, preds_dict in enumerate(preds_dicts):
             num_class_with_bg = self.num_classes[task_id]
+            # print(len(preds_dict))
+            # print(len(preds_dict[0]))
             batch_size = preds_dict[0]['heatmap'].shape[0]
             batch_heatmap = preds_dict[0]['heatmap'].sigmoid()
 

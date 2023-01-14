@@ -71,8 +71,8 @@ class BaseBEVDepth(nn.Module):
         #             'bda_mat': torch.eye(4).expand(b, 4, 4).cuda()
         #             }
 
-        # if self.is_train_depth and self.training:
-        if self.is_train_depth:
+        if self.is_train_depth and self.training:
+        # if self.is_train_depth:
             x, depth_pred = self.backbone(x,
                                           mats_dict,
                                           timestamps,

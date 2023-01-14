@@ -197,7 +197,7 @@ class BEVDepthLightningModel(LightningModule):
                  gpus: int = 1,
                  data_root='/ws/nuscenes',
                  eval_interval=1,
-                 batch_size_per_device=8,
+                 batch_size_per_device=4,
                  class_names=CLASSES,
                  backbone_conf=backbone_conf,
                  head_conf=head_conf,
@@ -225,6 +225,7 @@ class BEVDepthLightningModel(LightningModule):
                                   self.head_conf,
                                   is_train_depth=True)
         self.mode = 'valid'
+        self.fast_dev_run = False
         self.img_conf = img_conf
         self.data_use_cbgs = False
         self.num_sweeps = 1
@@ -354,6 +355,9 @@ class BEVDepthLightningModel(LightningModule):
         synchronize()
         
         len_dataset = len(self.val_dataloader().dataset)
+        print('------------------')
+        print(len(all_pred_results))
+        print(len_dataset)
         all_pred_results = sum(
             map(list, zip(*all_gather_object(all_pred_results))),
             [])[:len_dataset]
