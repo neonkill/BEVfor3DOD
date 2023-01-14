@@ -195,7 +195,7 @@ class BEVDepthLightningModel(LightningModule):
 
     def __init__(self,
                  gpus: int = 1,
-                 data_root='/ws/nuscenes',
+                 data_root='/usr/src/nuscenes',
                  eval_interval=1,
                  batch_size_per_device=4,
                  class_names=CLASSES,
@@ -364,7 +364,7 @@ class BEVDepthLightningModel(LightningModule):
         all_img_metas = sum(map(list, zip(*all_gather_object(all_img_metas))),
                             [])[:len_dataset]
         if get_rank() == 0:
-            self.evaluator.evaluate(all_pred_results, all_img_metas)
+            self.evaluator.evaluate(lm=self, results=all_pred_results, img_metas=all_img_metas, logger=self.logger)
 
     def test_epoch_end(self, test_step_outputs):
         all_pred_results = list()
@@ -382,7 +382,7 @@ class BEVDepthLightningModel(LightningModule):
         all_img_metas = sum(map(list, zip(*all_gather_object(all_img_metas))),
                             [])[:dataset_length]
         if get_rank() == 0:
-            self.evaluator.evaluate(all_pred_results, all_img_metas)
+            self.evaluator.evaluate(lm=self,  results=all_pred_results, img_metas=all_img_metas, logger=self.logger)
 
     def configure_optimizers(self):
         lr = self.basic_lr_per_img * \

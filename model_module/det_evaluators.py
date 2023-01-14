@@ -8,6 +8,7 @@ import numpy as np
 import pyquaternion
 from nuscenes.utils.data_classes import Box
 from pyquaternion import Quaternion
+import wandb
 
 # __all__ = ['DetNuscEvaluator']
 
@@ -38,7 +39,7 @@ class DetNuscEvaluator():
         self,
         class_names,
         eval_version='detection_cvpr_2019',
-        data_root='/ws/nuscenes',
+        data_root='/usr/src/nuscenes',
         version='v1.0-trainval',
         modality=dict(use_lidar=False,
                       use_camera=True,
@@ -58,8 +59,9 @@ class DetNuscEvaluator():
         self.modality = modality
         self.output_dir = output_dir
 
-    def _evaluate_single(self,
+    def _evaluate_single(self, 
                          result_path,
+                         lm=None,
                          logger=None,
                          metric='bbox',
                          result_name='pts_bbox'):
@@ -96,6 +98,7 @@ class DetNuscEvaluator():
         nusc_eval.main(render_curves=False)
 
         # record metrics
+
         metrics = mmcv.load(osp.join(output_dir, 'metrics_summary.json'))
         detail = dict()
         metric_prefix = f'{result_name}_NuScenes'
@@ -111,9 +114,15 @@ class DetNuscEvaluator():
                 val = float('{:.4f}'.format(v))
                 detail['{}/{}'.format(metric_prefix,
                                       self.ErrNameMapping[k])] = val
-
+        
         detail['{}/NDS'.format(metric_prefix)] = metrics['nd_score']
         detail['{}/mAP'.format(metric_prefix)] = metrics['mean_ap']
+        #! WandB Logs
+        if lm is not None:
+            wandb.log({f'{lm.trainer.state.stage}/metrics//NDS': metrics['nd_score'],\
+                 f'{lm.trainer.state.stage}/metrics/mAP': metrics['mean_ap'], 'epoch': lm.current_epoch})
+            if lm.current_epoch % 6 ==0:
+                mmcv.dump(metrics, osp.join(output_dir, f'metrics_summary_{lm.current_epoch}ep.json'))
         return detail
 
     def format_results(self,
@@ -121,6 +130,7 @@ class DetNuscEvaluator():
                        img_metas,
                        result_names=['img_bbox'],
                        jsonfile_prefix=None,
+                       lm=None,
                        **kwargs):
         """Format the results to json (standard format for COCO evaluation).
 
@@ -152,6 +162,7 @@ class DetNuscEvaluator():
         # refer to https://github.com/open-mmlab/mmdetection3d/issues/449
         # should take the inner dict out of 'pts_bbox' or 'img_bbox' dict
         result_files = dict()
+        
         # refactor this.
         for rasult_name in result_names:
             # not evaluate 2D predictions on nuScenes
@@ -162,17 +173,18 @@ class DetNuscEvaluator():
             if self.output_dir:
                 result_files.update({
                     rasult_name:
-                    self._format_bbox(results, img_metas, self.output_dir)
+                    self._format_bbox(results, img_metas, self.output_dir, lm)
                 })
             else:
                 result_files.update({
                     rasult_name:
-                    self._format_bbox(results, img_metas, tmp_file_)
+                    self._format_bbox(results, img_metas, tmp_file_, lm)
                 })
         return result_files, tmp_dir
 
     def evaluate(
         self,
+        lm,
         results,
         img_metas,
         metric='bbox',
@@ -203,23 +215,26 @@ class DetNuscEvaluator():
         Returns:
             dict[str, float]: Results of each evaluation metric.
         """
+
+        wandb.log({"getin": 1.0}, step=lm.current_epoch)
         result_files, tmp_dir = self.format_results(results, img_metas,
                                                     result_names,
-                                                    jsonfile_prefix)
-        if isinstance(result_files, dict):
+                                                    jsonfile_prefix,lm)
+        if isinstance(result_files, dict): #! 여기
             metrics = []
             for name in result_names:
                 print('Evaluating bboxes of {}'.format(name))
-                metrics.append(self._evaluate_single(result_files[name]))
+                metrics.append(self._evaluate_single(result_files[name], lm=lm))
             return metrics
         elif isinstance(result_files, str):
-            return self._evaluate_single(result_files)
+            res = self._evaluate_single(result_files, lm=lm)
+            return res
 
         if tmp_dir is not None:
             tmp_dir.cleanup()
         
 
-    def _format_bbox(self, results, img_metas, jsonfile_prefix=None):
+    def _format_bbox(self, results, img_metas, jsonfile_prefix=None, lm=None):
         """Convert the results to the standard format.
 
         Args:
@@ -298,7 +313,10 @@ class DetNuscEvaluator():
             'results': nusc_annos,
         }
         mmcv.mkdir_or_exist(jsonfile_prefix)
-        res_path = osp.join(jsonfile_prefix, 'results_nusc.json')
+        if (lm is not None) and (lm.current_epoch % 6 ==0):
+            res_path = osp.join(jsonfile_prefix, f'results_nusc_{lm.current_epoch}ep.json') #! Epoch 
+        else:
+            res_path = osp.join(jsonfile_prefix, 'results_nusc.json') #! Epoch 
         print('Results writes to', res_path)
         mmcv.dump(nusc_submissions, res_path)
         return res_path
