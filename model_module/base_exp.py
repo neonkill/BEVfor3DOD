@@ -355,9 +355,9 @@ class BEVDepthLightningModel(LightningModule):
         synchronize()
         
         len_dataset = len(self.val_dataloader().dataset)
-        print('------------------')
-        print(len(all_pred_results))
-        print(len_dataset)
+        # print('------------------')
+        # print(len(all_pred_results))
+        # print(len_dataset)
         all_pred_results = sum(
             map(list, zip(*all_gather_object(all_pred_results))),
             [])[:len_dataset]
