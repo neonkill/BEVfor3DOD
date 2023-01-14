@@ -70,6 +70,7 @@ def main(cfg):
     # trainer.test(model=model_module)
     # trainer.test(model=model_module,
     #             dataloaders=eval_loader)
+
     trainer.test(model=model_module, datamodule=data_module)
 
 

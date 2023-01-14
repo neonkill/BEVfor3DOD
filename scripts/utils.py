@@ -16,6 +16,8 @@ from model_module.losses import MultipleLoss
 from model_module.lightining_model_module import ModelModule
 from data_module.lightning_data_module import DataModule
 
+from model_module.bev_depth_lss_r50_256x704_128x128_24e_2key import BEVDepthLightningModel
+
 from collections.abc import Callable
 from typing import Tuple, Dict, Optional
 
@@ -57,6 +59,19 @@ def setup_model_module(cfg: DictConfig) -> ModelModule:
 
     return model_module
 
+def setup_BEVDEPTH_model_module(cfg: DictConfig) -> ModelModule:
+    # backbone = setup_network(cfg)
+    # loss_func = MultipleLoss(instantiate(cfg.loss))
+    # metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()},compute_groups=setup_compute_groups(cfg))
+    # metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()})
+    
+    model_module = BEVDepthLightningModel()
+    # model_module = ModelModule(backbone, loss_func, metrics,
+    #                            cfg.optimizer, cfg.scheduler,
+    #                            cfg=cfg)
+
+    return model_module
+
 
 def setup_data_module(cfg: DictConfig) -> DataModule:
     return DataModule(cfg.data.dataset, cfg.data, cfg.loader)
@@ -64,7 +79,8 @@ def setup_data_module(cfg: DictConfig) -> DataModule:
 
 
 def setup_experiment(cfg: DictConfig) -> Tuple[ModelModule, DataModule, Callable]:
-    model_module = setup_model_module(cfg)
+    model_module = setup_BEVDEPTH_model_module(cfg)
+    # model_module = setup_model_module(cfg)
     data_module = setup_data_module(cfg)
 
     return model_module, data_module

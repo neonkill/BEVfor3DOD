@@ -8,7 +8,7 @@ defaults:
 
 experiment:
   name: base
-  uuid: '0112_140614'
+  # uuid: '0112_140614'
 
 loader:
   batch_size: 4       # mini batch size per 1 GPU
@@ -32,7 +32,7 @@ trainer:
   # max_steps: 61530
   gpus: 4
   # num_sanity_val_steps: -1
-  # check_val_every_n_epoch: 6
+  check_val_every_n_epoch: 1
 
 
 # model:
