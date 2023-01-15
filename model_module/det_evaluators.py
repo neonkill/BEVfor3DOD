@@ -216,7 +216,6 @@ class DetNuscEvaluator():
             dict[str, float]: Results of each evaluation metric.
         """
 
-        wandb.log({"getin": 1.0}, step=lm.current_epoch)
         result_files, tmp_dir = self.format_results(results, img_metas,
                                                     result_names,
                                                     jsonfile_prefix,lm)
