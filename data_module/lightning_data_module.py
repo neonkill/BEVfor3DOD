@@ -11,10 +11,6 @@ from nuscenes.map_expansion.map_api import NuScenesMap
 from . import get_dataset_module_by_name
 
 
-# def get_split(split):
-#     path = Path(__file__).parent / 'splits' /  f'{split}.txt'
-#     return path.read_text().strip().split('\n')
-
 
 class DataModule(pl.LightningDataModule):
 

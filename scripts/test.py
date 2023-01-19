@@ -13,7 +13,7 @@ from utils import setup_config, setup_experiment, remove_prefix
 
 log = logging.getLogger(__name__)
 
-CONFIG_PATH = '/ws/CV_For_Autonomous_Driving/config'
+CONFIG_PATH = '/usr/src/CV_For_Autonomous_Driving/config'
 CONFIG_NAME = 'default_config.yaml'
 
 
@@ -45,10 +45,14 @@ def main(cfg):
     logger = pl.loggers.WandbLogger(project=cfg.experiment.project,
                                     save_dir=cfg.experiment.save_dir,
                                     id=cfg.experiment.uuid)
-
+    
     # Create and load model/data
     model_module, data_module = setup_experiment(cfg)
+    
     # eval_loader = data_module.eval_dataloader()
+
+    # print(len(data_module.test_dataloader()))
+    # exit()
 
     # load model
     ckpt_path = resume_training(cfg.experiment)

@@ -1,13 +1,13 @@
 # @package _global_
 defaults:
   - override /model: det/bevdepth_model
-  - override /data: nuscenes_det
+  - override /data: det/nuscenes_det_our
 
   # - override /loss: center_loss
   # - override /metrics: visibility_metrics
 
 experiment:
-  name: base_gpu1
+  name: base_gpu1_our
   # uuid: '0112_140614'
 
 loader:

@@ -226,11 +226,11 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
 
             # intrinsic
             I = np.float32(I_original)
-            I[0, 0] *= w / image.width
-            I[0, 2] *= w / image.width
-            I[1, 1] *= h / image.height
-            I[1, 2] *= h / image.height
-            I[1, 2] -= top_crop
+            # I[0, 0] *= w / image.width
+            # I[0, 2] *= w / image.width
+            # I[1, 1] *= h / image.height
+            # I[1, 2] *= h / image.height
+            # I[1, 2] -= top_crop
 
             sensor2ego_mat = np.float32(sensor2ego_mat)
 

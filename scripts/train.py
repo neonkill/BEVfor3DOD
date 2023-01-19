@@ -16,7 +16,7 @@ from utils import setup_config, setup_experiment, load_backbone
 log = logging.getLogger(__name__)
 
 # CONFIG_PATH = Path.cwd() / 'config'
-CONFIG_PATH = '/ws/CV_For_Autonomous_Driving/config'
+CONFIG_PATH = '/usr/src/CV_For_Autonomous_Driving/config'
 CONFIG_NAME = 'default_config.yaml'
 
 
@@ -76,8 +76,8 @@ def main(cfg):
                          callbacks=callbacks,
                          strategy=DDPPlugin(find_unused_parameters=False),     #! find_unsued_parameters False -> True
                          **cfg.trainer)
-    # trainer.fit(model_module, datamodule=data_module, ckpt_path=ckpt_path)
-    trainer.fit(model_module)
+    trainer.fit(model_module, datamodule=data_module, ckpt_path=ckpt_path)
+    # trainer.fit(model_module)
 
 
 if __name__ == '__main__':

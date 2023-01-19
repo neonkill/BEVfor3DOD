@@ -9,6 +9,57 @@ from nuscenes.utils.geometry_utils import view_points
 from PIL import Image
 from pyquaternion import Quaternion
 from torch.utils.data import Dataset
+from pathlib import Path
+
+'''
+    ida_aug_conf,
+    bda_aug_conf,
+    classes,
+    data_root,
+    info_paths,
+    is_train,
+    use_cbgs=False,
+    num_sweeps=1,
+    img_conf=dict(img_mean=[123.675, 116.28, 103.53],
+                img_std=[58.395, 57.12, 57.375],
+                to_rgb=True),
+    return_depth=False,
+    sweep_idxes=list(),
+    key_idxes=list(),
+    use_fusion=False)
+self.train_info_paths = os.path.join(self.data_root,
+                                             'nuscenes_infos_train.pkl')
+self.val_info_paths = os.path.join(self.data_root,
+                                           'nuscenes_infos_val.pkl')
+                                           def get_split(split, dataset_name):
+'''
+
+
+def get_data(
+    split, data_root,
+    ** dataset_kwargs
+):  #! yaml 파일로 줄 수 없는거 여기서 준다 !!
+    #! data.yaml로 줄 수 있는건 **datacfg in lightning_data_module
+    
+    # print('in',dataset_kwargs['data_root'])
+    # data_root dataset_kwargs['data_root']
+    # Format the split name
+    info_paths = f'{data_root}/nuscenes_infos_{split}.pkl'
+    is_train = True if split=='train' else False
+    return_depth = True if split=='train' else False
+    drop_last = True if split=='train' else False
+    # print(is_train, return_depth, drop_last)
+
+    dataset = NuscDetDataset(data_root=data_root,info_paths=info_paths, is_train = is_train, \
+        return_depth=return_depth, ** dataset_kwargs)
+
+
+    return dataset , return_depth, drop_last
+
+
+
+
+np.random.seed(0)
 
 __all__ = ['NuscDetDataset']
 
@@ -233,7 +284,8 @@ class NuscDetDataset(Dataset):
                  return_depth=False,
                  sweep_idxes=list(),
                  key_idxes=list(),
-                 use_fusion=False):
+                 use_fusion=False,
+                 **kwargs):
         """Dataset used for bevdetection task.
         Args:
             ida_aug_conf (dict): Config for ida augmentation.
@@ -341,7 +393,7 @@ class NuscDetDataset(Dataset):
             resize_dims = (int(W * resize), int(H * resize))
             newW, newH = resize_dims
             crop_h = int(
-                (1 - np.mean(self.ida_aug_conf['bot_pct_lim'])) * newH) - fH
+                (1 - np.mean(tuple(self.ida_aug_conf['bot_pct_lim']))) * newH) - fH
             crop_w = int(max(0, newW - fW) / 2)
             crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
             flip = False
@@ -518,7 +570,7 @@ class NuscDetDataset(Dataset):
             [key_info[cam]['ego_pose']['rotation'] for cam in cams], 0)
         ego2global_translation = np.mean(
             [key_info[cam]['ego_pose']['translation'] for cam in cams], 0)
-        img_metas = dict(
+        img_metas = dict( #! LIDAR BOX
             box_type_3d=LiDARInstance3DBoxes,
             ego2global_translation=ego2global_translation,
             ego2global_rotation=ego2global_rotation,

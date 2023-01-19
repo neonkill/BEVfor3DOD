@@ -7,7 +7,7 @@ from mmdet.models import build_backbone
 from mmdet.models.backbones.resnet import BasicBlock
 from torch import nn
 from torch.cuda.amp.autocast_mode import autocast
-
+from omegaconf import OmegaConf, DictConfig,SCMode
 try:
     from model_module.model.detection.ops.voxel_pooling import voxel_pooling
 except ImportError:
@@ -364,8 +364,8 @@ class BaseLSSFPN(nn.Module):
         self.register_buffer('frustum', self.create_frustum())
         self.depth_channels, _, _, _ = self.frustum.shape
 
-        self.img_backbone = build_backbone(img_backbone_conf)
-        self.img_neck = build_neck(img_neck_conf)
+        self.img_backbone = build_backbone(OmegaConf.to_container(img_backbone_conf, resolve=True))
+        self.img_neck = build_neck(OmegaConf.to_container(img_neck_conf, resolve=True))
         self.depth_net = self._configure_depth_net(depth_net_conf)
 
         self.img_neck.init_weights()

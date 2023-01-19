@@ -8,7 +8,7 @@ from tokenize import group
 import torch
 
 from hydra.utils import instantiate
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import OmegaConf, DictConfig,SCMode
 from torchmetrics import MetricCollection
 from pathlib import Path
 import copy
@@ -36,7 +36,11 @@ def setup_config(cfg: DictConfig, override: Optional[Callable] = None):
 
 
 def setup_network(cfg: DictConfig):
-    return instantiate(cfg.model)
+    model_config = OmegaConf.to_container(cfg.model,structured_config_mode=SCMode.DICT)
+    # print('ttt', type(model_config['backbone']['img_backbone_conf']))
+    # print('ttt',type(OmegaConf.to_container(cfg.model, resolve=True)['head']))
+    
+    return instantiate(model_config)
 
 def setup_compute_groups(cfg: DictConfig):
     # return [['road_iou'], ['lane_iou'], ['vehicle_iou']]
@@ -47,12 +51,12 @@ def setup_compute_groups(cfg: DictConfig):
     return groups
 
 def setup_model_module(cfg: DictConfig) -> ModelModule:
-    # backbone = setup_network(cfg)
+    fullmodel = setup_network(cfg)
     # loss_func = MultipleLoss(instantiate(cfg.loss))
     # metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()},compute_groups=setup_compute_groups(cfg))
     # metrics = MetricCollection({k: v for k, v in instantiate(cfg.metrics).items()})
     
-    model_module = ModelModule(cfg=cfg)
+    model_module = ModelModule(fullmodel , cfg=cfg)
     # model_module = ModelModule(backbone, loss_func, metrics,
     #                            cfg.optimizer, cfg.scheduler,
     #                            cfg=cfg)
@@ -79,8 +83,8 @@ def setup_data_module(cfg: DictConfig) -> DataModule:
 
 
 def setup_experiment(cfg: DictConfig) -> Tuple[ModelModule, DataModule, Callable]:
-    model_module = setup_BEVDEPTH_model_module(cfg)
-    # model_module = setup_model_module(cfg)
+    # model_module = setup_BEVDEPTH_model_module(cfg)
+    model_module = setup_model_module(cfg)
     data_module = setup_data_module(cfg)
 
     return model_module, data_module

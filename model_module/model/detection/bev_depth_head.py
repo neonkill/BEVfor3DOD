@@ -9,7 +9,7 @@ from mmdet3d.models.utils import clip_sigmoid
 from mmdet.core import reduce_mean
 from mmdet.models import build_backbone
 from torch.cuda.amp import autocast
-
+from omegaconf import OmegaConf, DictConfig,SCMode
 __all__ = ['BEVDepthHead']
 
 bev_backbone_conf = dict(
@@ -118,6 +118,14 @@ class BEVDepthHead(CenterHead):
                            init_bias=-2.19,
                            final_kernel=3),
     ):
+        loss_cls = OmegaConf.to_container(loss_cls, resolve=True)
+        loss_bbox = OmegaConf.to_container(loss_bbox, resolve=True)
+        separate_head = OmegaConf.to_container(separate_head, resolve=True)
+        bbox_coder = OmegaConf.to_container(bbox_coder, resolve=True)
+        # in_channels = OmegaConf.to_container(in_channels, resolve=True)
+        tasks = OmegaConf.to_container(tasks, resolve=True)
+        common_heads = OmegaConf.to_container(common_heads, resolve=True)
+
         super(BEVDepthHead, self).__init__(
             in_channels=in_channels,
             tasks=tasks,
@@ -127,9 +135,9 @@ class BEVDepthHead(CenterHead):
             loss_bbox=loss_bbox,
             separate_head=separate_head,
         )
-        self.trunk = build_backbone(bev_backbone_conf)
+        self.trunk = build_backbone(OmegaConf.to_container(bev_backbone_conf, resolve=True))
         self.trunk.init_weights()
-        self.neck = build_neck(bev_neck_conf)
+        self.neck = build_neck(OmegaConf.to_container(bev_neck_conf, resolve=True))
         self.neck.init_weights()
         del self.trunk.maxpool
         self.gaussian_overlap = gaussian_overlap
@@ -183,11 +191,16 @@ class BEVDepthHead(CenterHead):
                 - list[torch.Tensor]: Masks indicating which boxes \
                     are valid.
         """
+        #! 500 * 1 
         max_objs = self.train_cfg['max_objs'] * self.train_cfg['dense_reg']
+        #! [512, 512, 1]
         grid_size = torch.tensor(self.train_cfg['grid_size'])
+        #! [-51.2, -51.2, -5, 51.2, 51.2, 3]
         pc_range = torch.tensor(self.train_cfg['point_cloud_range'])
+        #! [0.2, 0.2, 8]
         voxel_size = torch.tensor(self.train_cfg['voxel_size'])
 
+        #! [256, 256]
         feature_map_size = grid_size[:2] // self.train_cfg['out_size_factor']
 
         # reorganize the gt_dict by tasks

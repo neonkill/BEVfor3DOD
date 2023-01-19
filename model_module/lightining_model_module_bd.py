@@ -40,14 +40,14 @@ class ModelModule(pl.LightningModule):
 
     def __init__(self, fullmodel=None, loss_func=None, metrics=None, optimizer_args=None, scheduler_args=None, cfg=None):
         super().__init__()
-        # print(cfg)
+        print(cfg)
         self.save_hyperparameters(
             cfg,
             ignore=['fullmodel', 'loss_func', 'metrics', 'optimizer_args', 'scheduler_args'])
-        # self.gpus = 4 #! 
-        # self.eval_interval = 1 #! 
-        # self.batch_size_per_device = 4 #!
-        self.basic_lr_per_img = 2e-4 
+        self.gpus = 4 #! 
+        self.eval_interval = 1 #! 
+        self.batch_size_per_device = 4 #!
+        self.basic_lr_per_img = 2e-4 / 64 
         self.fullmodel = fullmodel
         self.class_names = CLASSES 
 
@@ -63,25 +63,20 @@ class ModelModule(pl.LightningModule):
         self.optimizer_args = optimizer_args
         self.scheduler_args = scheduler_args
 
-    def forward(self, batch):
-        return self.fullmodel(batch)
+    def forward(self, imgs, mats):
+        return self.fullmodel(imgs, mats)
 
     def training_step(self, batch):
-        # (imgs, mats, _, _, gt_boxes, gt_labels, depth_labels) = batch
-        preds, depth_preds = self(batch)
-        gt_boxes = [gt_box.cuda() for gt_box in batch['gt_boxes']]
-        gt_labels = [gt_label.cuda() for gt_label in batch['gt_labels']]
-        depth_labels = batch['depths']
-        
-        # if torch.cuda.is_available():
-        #     for key, value in mats.items():
-        #         mats[key] = value.cuda()
-        #     imgs = imgs.cuda()
-        #     gt_boxes = [gt_box.cuda() for gt_box in gt_boxes]
-        #     gt_labels = [gt_label.cuda() for gt_label in gt_labels]
+        (imgs, mats, _, _, gt_boxes, gt_labels, depth_labels) = batch
+        if torch.cuda.is_available():
+            for key, value in mats.items():
+                mats[key] = value.cuda()
+            imgs = imgs.cuda()
+            gt_boxes = [gt_box.cuda() for gt_box in gt_boxes]
+            gt_labels = [gt_label.cuda() for gt_label in gt_labels]
 
         #* Forward
-        # preds, depth_preds = self(imgs, mats)
+        preds, depth_preds = self(imgs, mats)
 
         #* Get Targets & Detection Loss
         if isinstance(self.fullmodel, torch.nn.parallel.DistributedDataParallel): #! 지워도?
@@ -119,9 +114,8 @@ class ModelModule(pl.LightningModule):
         self.get_metrics(test_step_outputs, len(self.trainer.test_dataloaders[0].dataset))
 
     def configure_optimizers(self):
-        # lr = self.basic_lr_per_img * \
-        #     self.batch_size_per_device * self.gpus
-        lr = self.basic_lr_per_img
+        lr = self.basic_lr_per_img * \
+            self.batch_size_per_device * self.gpus
         optimizer = torch.optim.AdamW(self.fullmodel.parameters(),
                                       lr=lr,
                                       weight_decay=1e-7)
@@ -130,32 +124,33 @@ class ModelModule(pl.LightningModule):
              
 
     def eval_step(self, batch, batch_idx, prefix: str):
-
-        preds = self(batch)
+        (imgs, mats, _, img_metas, _, _) = batch
+        if torch.cuda.is_available():
+            for key, value in mats.items():
+                mats[key] = value.cuda()
+            imgs = imgs.cuda()
             
-        for img_meta in batch['img_metas']:
-            img_meta['box_type_3d'] = LiDARInstance3DBoxes
-
+        preds = self.fullmodel(imgs, mats)
         if isinstance(self.fullmodel, torch.nn.parallel.DistributedDataParallel):
-            results = self.fullmodel.module.get_bboxes(preds, batch['img_metas'])
+            results = self.fullmodel.module.get_bboxes(preds, img_metas)
         else:
-            results = self.fullmodel.get_bboxes(preds, batch['img_metas'])
+            results = self.fullmodel.get_bboxes(preds, img_metas)
         for i in range(len(results)):
             results[i][0] = results[i][0].detach().cpu().numpy()
             results[i][1] = results[i][1].detach().cpu().numpy()
             results[i][2] = results[i][2].detach().cpu().numpy()
-            results[i].append(batch['img_metas'][i])
+            results[i].append(img_metas[i])
         return results
 
     def get_metrics(self, step_outputs, data_length):
         all_pred_results = list()
         all_img_metas = list()
         for step_output  in step_outputs:
-            for i in range(len(step_output)):
+            for i in range(len(step_output )):
                 all_pred_results.append(step_output[i][:3])
                 all_img_metas.append(step_output[i][3])
         synchronize() 
-        print('data_length',data_length)
+
         all_pred_results = sum(
             map(list, zip(*all_gather_object(all_pred_results))),
             [])[:data_length]
