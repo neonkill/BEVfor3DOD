@@ -7,18 +7,18 @@ defaults:
   # - override /metrics: visibility_metrics
 
 experiment:
-  name: base_gpu1_our
-  uuid: '0119_145021'
+  name: base_our_top_bev
+  # uuid: '0125_074419'
 
 loader:
-  batch_size: 4       # mini batch size per 1 GPU
+  batch_size: 3       # mini batch size per 1 GPU
   num_workers: 8
   prefetch_factor: 8
   # sampler: None
 
 optimizer:
   dual_lr: False
-  lr: 4e-3 #! self.basic_lr_per_img = 2e-4 / 64
+  lr: 2e-4  #! self.basic_lr_per_img = 2e-4 / 64
 
 # scheduler:
 #   name: onecycle

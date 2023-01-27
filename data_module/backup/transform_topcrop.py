@@ -6,7 +6,7 @@
 
 import os
 import pathlib
-import mmcv
+
 import torch
 import torchvision
 import numpy as np
@@ -20,11 +20,6 @@ from pyquaternion import Quaternion
 from nuscenes.utils.data_classes import Box, LidarPointCloud
 from mmdet3d.core.bbox.structures.lidar_box3d import LiDARInstance3DBoxes
 
-# H = 900
-# W = 1600
-# final_dim = (256, 704)
-
-# np.random.seed(45)
 
 class Sample(dict):
     def __init__(
@@ -117,8 +112,8 @@ class SaveDataTransform:
 
 
 class LoadDataTransform(torchvision.transforms.ToTensor):
-    #! TODO: is_train
-    def __init__(self, dataset_dir, labels_dir, image_config, num_classes, augment='none', is_train=False):
+
+    def __init__(self, dataset_dir, labels_dir, image_config, num_classes, augment='none'):
         super().__init__()
 
         self.dataset_dir = pathlib.Path(dataset_dir)
@@ -132,38 +127,15 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
             'geometric': [StrongAug(), GeometricAug()],
         }[augment] + [torchvision.transforms.ToTensor()]
 
-        self.img_trans_vision = torchvision.transforms.Compose(xform)
+        self.img_transform = torchvision.transforms.Compose(xform)
         self.to_tensor = super().__call__
-
-        #! BEVDepth aug vars
-        self.is_train = is_train
-        self.ida_aug_conf ={ 'resize_lim': [0.386, 0.55],
-                        'final_dim':  [256, 704],
-                        'rot_lim': [-5.4, 5.4],
-                        'H': 900,
-                        'W': 1600,
-                        'rand_flip': True,
-                        'bot_pct_lim' : [0.0, 0.0],
-                        'cams': ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT',
-                            'CAM_BACK', 'CAM_BACK_RIGHT' ],
-                        'Ncams': 6 }
-        self.bda_aug_conf= { 'rot_lim': [-22.5, 22.5],
-                        'scale_lim': [0.95, 1.05],
-                        'flip_dx_ratio': 0.5,
-                        'flip_dy_ratio': 0.5 }
-        self.img_conf = dict(img_mean=[123.675, 116.28, 103.53],
-                        img_std=[58.395, 57.12, 57.375],
-                        to_rgb=True)
-        self.img_mean = np.array(self.img_conf['img_mean'], np.float32)
-        self.img_std = np.array(self.img_conf['img_std'], np.float32)
-        self.to_rgb = self.img_conf['to_rgb']
 
     def get_sensor2sensor_mat(self):
         sensor2sensor_mat = np.full((4, 4), 1e-9, dtype=np.float32)
         np.fill_diagonal(sensor2sensor_mat, 1.0)
         return sensor2sensor_mat
 
-    #resize: [0.44, 0.344] / resize_dim[704, 310] / crop [0, 54, 704, 310]
+    # resize: [0.44, 0.344] / resize_dim[704, 310] / crop [0, 54, 704, 310]
     def get_img_transform(self, resize, crop):
         '''
         resize: [w, h]
@@ -200,75 +172,8 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
 
         return np.concatenate([pts_img[:2, :].T, depth[:, None]],axis=1).astype(np.float32)
 
-    def img_transform(self, img, resize, resize_dims, crop, flip, rotate):
-        ida_rot = torch.eye(2)
-        ida_tran = torch.zeros(2)
-
-        # adjust image
-        img = img.resize(resize_dims)
-        img = img.crop(crop)
-        if flip:
-            img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
-        img = img.rotate(rotate)
-
-        # post-homography transformation
-        ida_rot *= resize
-        ida_tran -= torch.Tensor(crop[:2])
-        if flip:
-            A = torch.Tensor([[-1, 0], [0, 1]])
-            b = torch.Tensor([crop[2] - crop[0], 0])
-            ida_rot = A.matmul(ida_rot)
-            ida_tran = A.matmul(ida_tran) + b
-        A = self.get_rot(rotate / 180 * np.pi)
-        b = torch.Tensor([crop[2] - crop[0], crop[3] - crop[1]]) / 2
-        b = A.matmul(-b) + b
-        ida_rot = A.matmul(ida_rot)
-        ida_tran = A.matmul(ida_tran) + b
-        ida_mat = ida_rot.new_zeros(4, 4)
-        ida_mat[3, 3] = 1
-        ida_mat[2, 2] = 1
-        ida_mat[:2, :2] = ida_rot
-        ida_mat[:2, 3] = ida_tran
-        return img, ida_mat
-
-    def get_rot(self, h):
-        return torch.Tensor([
-            [np.cos(h), np.sin(h)],
-            [-np.sin(h), np.cos(h)],
-        ])
-
-    def sample_ida_augmentation(self):
-        """Generate ida augmentation values based on ida_config."""
-        H, W = self.ida_aug_conf['H'], self.ida_aug_conf['W']
-        fH, fW = self.ida_aug_conf['final_dim']
-        if self.is_train:
-            resize = np.random.uniform(*self.ida_aug_conf['resize_lim'])
-            resize_dims = (int(W * resize), int(H * resize))
-            newW, newH = resize_dims
-            crop_h = int(
-                (1 - np.random.uniform(*self.ida_aug_conf['bot_pct_lim'])) *
-                newH) - fH
-            crop_w = int(np.random.uniform(0, max(0, newW - fW)))
-            crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
-            flip = False
-            if self.ida_aug_conf['rand_flip'] and np.random.choice([0, 1]):
-                flip = True
-            rotate_ida = np.random.uniform(*self.ida_aug_conf['rot_lim'])
-        else:
-            resize = max(fH / H, fW / W)
-            resize_dims = (int(W * resize), int(H * resize))
-            newW, newH = resize_dims
-            crop_h = int(
-                (1 - np.mean(tuple(self.ida_aug_conf['bot_pct_lim']))) * newH) - fH
-            crop_w = int(max(0, newW - fW) / 2)
-            crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
-            flip = False
-            rotate_ida = 0
-        return resize, resize_dims, crop, flip, rotate_ida
 
     def get_cameras(self, sample: Sample, h, w, top_crop):
-
-    
         """
         Note: we invert I and E here for convenience.
         """
@@ -281,14 +186,11 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         depths = list()
 
         lidar_path = sample.lidar_path
-        # print('self.dataset_dir, lidar_path',self.dataset_dir, lidar_path)
         lidar_points = np.fromfile(os.path.join(self.dataset_dir, lidar_path),
                                     dtype=np.float32,count=-1).reshape(-1, 5)[..., :4]
 
         ego2global_translation = torch.tensor(np.float32(sample.ego2global_translation))
         ego2global_rotation = torch.tensor(np.float32(sample.ego2global_rotation))
-         #! depth aug
-        
 
         # resize: [0.44, 0.344] / resize_dim[704, 310] / crop [0, 54, 704, 310]
         for i, (image_path, I_original, sensor2ego_mat) in enumerate(zip(sample.images, sample.intrinsics, sample.sensor2ego_mats)):
@@ -300,16 +202,13 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
             image = Image.open(self.dataset_dir / image_path)
 
             image_new = image.resize((w_resize, h_resize), resample=Image.BILINEAR)
+            images_before_crop.append(self.img_transform(image_new))    #!
             image_new = image_new.crop((0, top_crop, image_new.width, image_new.height))
-
-            images_before_crop.append(self.img_trans_vision(image))    #!
 
             resize = [w_resize/1600, h_resize/900]
             crop = [0, top_crop, image_new.width, image_new.height]
             ida_mat = self.get_img_transform(resize, crop)
 
-
-           
 
             # depth 
             point_depth = self.get_lidar_depth(lidar_points, 
@@ -321,21 +220,21 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
             point_depth_new = point_depth
             point_depth_new = depth_transform(cam_depth=point_depth, 
                                             resize=resize,
-                                            resize_dims=(h, w), #! (256,704)
+                                            resize_dims=(h, w),
                                             crop=crop)
 
 
             # intrinsic
             I = np.float32(I_original)
-            # I[0, 0] *= w / image.width
-            # I[0, 2] *= w / image.width
-            # I[1, 1] *= h / image.height
-            # I[1, 2] *= h / image.height
-            # I[1, 2] -= top_crop
+            I[0, 0] *= w / image.width
+            I[0, 2] *= w / image.width
+            I[1, 1] *= h / image.height
+            I[1, 2] *= h / image.height
+            I[1, 2] -= top_crop
 
             sensor2ego_mat = np.float32(sensor2ego_mat)
 
-            images.append(self.img_trans_vision(image_new))
+            images.append(self.img_transform(image_new))
             intrinsics.append(torch.tensor(I))
             sensor2ego_mats.append(torch.tensor(sensor2ego_mat))
             sensor2sensor_mats.append(torch.tensor(self.get_sensor2sensor_mat()))
@@ -361,26 +260,8 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
             'img_metas': img_metas,
             'depths': torch.stack(depths, 0)
         }
-    def sample_bda_augmentation(self):
-        """Generate bda augmentation values based on bda_config."""
-        if self.is_train:
-            rotate_bda = np.random.uniform(*self.bda_aug_conf['rot_lim'])
-            scale_bda = np.random.uniform(*self.bda_aug_conf['scale_lim'])
-            flip_dx = np.random.uniform() < self.bda_aug_conf['flip_dx_ratio']
-            flip_dy = np.random.uniform() < self.bda_aug_conf['flip_dy_ratio']
-        else:
-            rotate_bda = 0
-            scale_bda = 1.0
-            flip_dx = False
-            flip_dy = False
-        return rotate_bda, scale_bda, flip_dx, flip_dy
 
     def get_bev(self, sample: Sample):
-        
-        # bda_mat = sweep_imgs.new_zeros(4, 4)
-        # bda_mat[3, 3] = 1
-
-
         scene_dir = self.labels_dir / sample.scene
         bev = None
 
@@ -409,53 +290,11 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
 
         return result
     
-    def bev_transform(self, gt_boxes, rotate_angle, scale_ratio, flip_dx, flip_dy):
-        rotate_angle = torch.tensor(rotate_angle / 180 * np.pi)
-        rot_sin = torch.sin(rotate_angle)
-        rot_cos = torch.cos(rotate_angle)
-        rot_mat = torch.Tensor([[rot_cos, -rot_sin, 0], [rot_sin, rot_cos, 0],
-                                [0, 0, 1]])
-        scale_mat = torch.Tensor([[scale_ratio, 0, 0], [0, scale_ratio, 0],
-                                [0, 0, scale_ratio]])
-        flip_mat = torch.Tensor([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-        if flip_dx:
-            flip_mat = flip_mat @ torch.Tensor([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
-        if flip_dy:
-            flip_mat = flip_mat @ torch.Tensor([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
-        rot_mat = flip_mat @ (scale_mat @ rot_mat)
-        # print('gt_boxes',gt_boxes.type()) #! gt_boxes torch.DoubleTensor,
-        # print('rot_mat',rot_mat.type()) #! rot_mat torch.FloatTensor
-        gt_boxes = gt_boxes.type(torch.float32)
-        if gt_boxes.shape[0] > 0:
-            gt_boxes[:, :3] = (rot_mat @ gt_boxes[:, :3].unsqueeze(-1)).squeeze(-1)
-            #! rot_mat: [3,3]
-            #! gt_boxes[:, :3]: [9,3]
-            #! after matmul: [9,3,1]
-            #! after squeeze: [9,3] 
-            gt_boxes[:, 3:6] *= scale_ratio
-            gt_boxes[:, 6] += rotate_angle
-            if flip_dx:
-                gt_boxes[:, 6] = 2 * torch.asin(torch.tensor(1.0)) - gt_boxes[:, 6]
-            if flip_dy:
-                gt_boxes[:, 6] = -gt_boxes[:, 6]
-            gt_boxes[:, 7:] = (
-                rot_mat[:2, :2] @ gt_boxes[:, 7:].unsqueeze(-1)).squeeze(-1)
-            #! gt_boxes[:, 7:] : [9,2]
-        return gt_boxes, rot_mat
 
     def get_3d_det(self, batch):
         gt_boxes = torch.tensor(np.array(batch.gt_boxes))
         gt_labels = torch.tensor(np.array(batch.gt_labels))
-
-        #! BD
-        rotate_bda, scale_bda, flip_dx, flip_dy = self.sample_bda_augmentation()
-        bda_mat = torch.zeros(4, 4)
-        bda_mat[3, 3] = 1
-        gt_boxes, bda_rot = self.bev_transform(gt_boxes, rotate_bda, scale_bda,
-                                          flip_dx, flip_dy)
-
-        bda_mat[:3, :3] = bda_rot
-        return {'gt_boxes': gt_boxes, 'gt_labels': gt_labels, 'bda_mat':bda_mat}
+        return {'gt_boxes': gt_boxes, 'gt_labels': gt_labels}
 
         
     def __call__(self, batch):

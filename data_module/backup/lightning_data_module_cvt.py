@@ -11,6 +11,10 @@ from nuscenes.map_expansion.map_api import NuScenesMap
 from . import get_dataset_module_by_name
 
 
+# def get_split(split):
+#     path = Path(__file__).parent / 'splits' /  f'{split}.txt'
+#     return path.read_text().strip().split('\n')
+
 
 class DataModule(pl.LightningDataModule):
 
@@ -59,7 +63,6 @@ def collate_fn(batchs):
     ida_mats = []
     img_metas = []
     images_before_crop = [] #!
-    bda_mats =[]
 
 
     for batch in batchs:
@@ -78,9 +81,7 @@ def collate_fn(batchs):
         sensor2ego_mats.append(batch['sensor2ego_mats'])
         ida_mats.append(batch['ida_mats'])
         img_metas.append(batch['img_metas'])
-        images_before_crop.append(batch['images_before_crop'])
-        bda_mats.append(batch['bda_mat'])
-          #!
+        images_before_crop.append(batch['images_before_crop'])  #!
 
 
     results = {}
@@ -97,11 +98,10 @@ def collate_fn(batchs):
     results['sensor2ego_mats'] = torch.stack(sensor2ego_mats, dim=0)
     results['ida_mats'] = torch.stack(ida_mats, dim=0)
     results['images_before_crop'] = torch.stack(images_before_crop, dim=0)      #!
-    
+
     results['img_metas'] = img_metas
     results['gt_boxes'] = gt_boxes
     results['gt_labels'] = gt_labels
-    results['bda_mats'] = torch.stack(bda_mats, dim=0) 
 
     return results
 

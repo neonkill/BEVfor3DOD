@@ -59,8 +59,6 @@ def get_data(
 
 
 
-np.random.seed(0)
-
 __all__ = ['NuscDetDataset']
 
 map_name_from_general_to_detection = {

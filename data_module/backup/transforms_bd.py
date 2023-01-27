@@ -163,26 +163,26 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         np.fill_diagonal(sensor2sensor_mat, 1.0)
         return sensor2sensor_mat
 
-    #resize: [0.44, 0.344] / resize_dim[704, 310] / crop [0, 54, 704, 310]
-    def get_img_transform(self, resize, crop):
-        '''
-        resize: [w, h]
-        '''
-        ida_rot = torch.eye(2)
-        ida_tran = torch.zeros(2)
+    # resize: [0.44, 0.344] / resize_dim[704, 310] / crop [0, 54, 704, 310]
+    # def get_img_transform(self, resize, crop):
+    #     '''
+    #     resize: [w, h]
+    #     '''
+    #     ida_rot = torch.eye(2)
+    #     ida_tran = torch.zeros(2)
 
-        ida_rot[0,:] *= resize[0]
-        ida_rot[1,:] *= resize[1]
+    #     ida_rot[0,:] *= resize[0]
+    #     ida_rot[1,:] *= resize[1]
 
-        ida_tran -= torch.Tensor(crop[:2])
+    #     ida_tran -= torch.Tensor(crop[:2])
 
-        ida_mat = ida_rot.new_zeros(4, 4)
-        ida_mat[3, 3] = 1
-        ida_mat[2, 2] = 1
-        ida_mat[:2, :2] = ida_rot
-        ida_mat[:2, 3] = ida_tran
+    #     ida_mat = ida_rot.new_zeros(4, 4)
+    #     ida_mat[3, 3] = 1
+    #     ida_mat[2, 2] = 1
+    #     ida_mat[:2, :2] = ida_rot
+    #     ida_mat[:2, 3] = ida_tran
         
-        return ida_mat
+    #     return ida_mat
 
 
     def get_lidar_depth(self, lidar_points, img, 
@@ -281,7 +281,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         depths = list()
 
         lidar_path = sample.lidar_path
-        # print('self.dataset_dir, lidar_path',self.dataset_dir, lidar_path)
+        print('self.dataset_dir, lidar_path',self.dataset_dir, lidar_path)
         lidar_points = np.fromfile(os.path.join(self.dataset_dir, lidar_path),
                                     dtype=np.float32,count=-1).reshape(-1, 5)[..., :4]
 
@@ -293,21 +293,28 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         # resize: [0.44, 0.344] / resize_dim[704, 310] / crop [0, 54, 704, 310]
         for i, (image_path, I_original, sensor2ego_mat) in enumerate(zip(sample.images, sample.intrinsics, sample.sensor2ego_mats)):
 
-            # RGB images
-            h_resize = h + top_crop
-            w_resize = w
+            # # RGB images
+            # h_resize = h + top_crop
+            # w_resize = w
 
             image = Image.open(self.dataset_dir / image_path)
 
-            image_new = image.resize((w_resize, h_resize), resample=Image.BILINEAR)
-            image_new = image_new.crop((0, top_crop, image_new.width, image_new.height))
-
+            # image_new = image.resize((w_resize, h_resize), resample=Image.BILINEAR)
             images_before_crop.append(self.img_trans_vision(image))    #!
+            # image_new = image_new.crop((0, top_crop, image_new.width, image_new.height))
 
-            resize = [w_resize/1600, h_resize/900]
-            crop = [0, top_crop, image_new.width, image_new.height]
-            ida_mat = self.get_img_transform(resize, crop)
-
+            # resize = [w_resize/1600, h_resize/900]
+            # crop = [0, top_crop, image_new.width, image_new.height]
+            # ida_mat = self.get_img_transform(resize, crop)
+            resize, resize_dims, crop, flip, rotate_ida = self.sample_ida_augmentation()
+            #! image aug
+            image_new, ida_mat = self.img_transform(img=image, resize=resize, resize_dims=resize_dims,\
+                                            crop=crop,
+                                            flip=flip,
+                                            rotate=rotate_ida, )
+            image_new = mmcv.imnormalize(np.array(image_new), self.img_mean,
+                                       self.img_std, self.to_rgb)
+            image_new = torch.from_numpy(image_new).permute(2, 0, 1)
 
            
 
@@ -318,11 +325,12 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
                                                 sample.lidar_ego_pose, 
                                                 sample.cam_calibrated_sensors[i], 
                                                 sample.cam_ego_poses[i])
-            point_depth_new = point_depth
+            point_depth_new = point_depth #!이거 없에도 되나?
+            #! TODO resize, resize_dims, crop, flip, rotate_ida
             point_depth_new = depth_transform(cam_depth=point_depth, 
                                             resize=resize,
-                                            resize_dims=(h, w), #! (256,704)
-                                            crop=crop)
+                                            resize_dims=self.ida_aug_conf['final_dim'],
+                                            crop=crop, flip=flip, rotate=rotate_ida)
 
 
             # intrinsic
@@ -335,7 +343,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
 
             sensor2ego_mat = np.float32(sensor2ego_mat)
 
-            images.append(self.img_trans_vision(image_new))
+            images.append(image_new)
             intrinsics.append(torch.tensor(I))
             sensor2ego_mats.append(torch.tensor(sensor2ego_mat))
             sensor2sensor_mats.append(torch.tensor(self.get_sensor2sensor_mat()))

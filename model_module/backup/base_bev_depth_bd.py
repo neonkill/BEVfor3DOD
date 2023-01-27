@@ -40,9 +40,9 @@ class BaseBEVDepth(nn.Module):
 
     def forward(
         self,
-        batch,
-        # x,
-        # mats_dict,
+        # batch,
+        x,
+        mats_dict,
         timestamps=None,
     ):
         """Forward function for BEVDepth
@@ -69,27 +69,22 @@ class BaseBEVDepth(nn.Module):
             tuple(list[dict]): Output results for tasks.
         """
         
-        x = batch['image'].unsqueeze(1).cuda()
-        b, _, n, _, _, _ = x.shape
-        intrinsics = torch.eye(4).expand(b, n, 4, 4)    # B, 6, 3, 3
-        intrinsics = intrinsics.clone()
-        intrinsics[:,:,:3,:3] = batch['intrinsics']     # B, 6, 4, 4
-        # print('batch[bda]',batch['bda_mats'].shape)
+        # x = batch['image'].unsqueeze(1).cuda()
+        # b, _, n, _, _, _ = x.shape
+        # intrinsics = torch.eye(4).expand(b, n, 4, 4)    # B, 6, 3, 3
+        # intrinsics = intrinsics.clone()
+        # intrinsics[:,:,:3,:3] = batch['intrinsics']     # B, 6, 4, 4
 
         
-        mats_dict = {'sensor2ego_mats': batch['sensor2ego_mats'].unsqueeze(1).cuda(),
-                    'intrin_mats': intrinsics.unsqueeze(1).cuda(),
-                    'ida_mats': batch['ida_mats'].unsqueeze(1).cuda(),
-                    'sensor2sensor_mats': batch['sensor2sensor_mats'].unsqueeze(1).cuda(),
-                    # 'bda_mat': torch.eye(4).expand(b, 4, 4).cuda()
-                    'bda_mat': batch['bda_mats'].cuda()
-                    }
+        # mats_dict = {'sensor2ego_mats': batch['sensor2ego_mats'].unsqueeze(1).cuda(),
+        #             'intrin_mats': intrinsics.unsqueeze(1).cuda(),
+        #             'ida_mats': batch['ida_mats'].unsqueeze(1).cuda(),
+        #             'sensor2sensor_mats': batch['sensor2sensor_mats'].unsqueeze(1).cuda(),
+        #             'bda_mat': torch.eye(4).expand(b, 4, 4).cuda()
+        #             }
 
-        # if self.is_train_depth and self.training:
         if self.is_train_depth and self.training:
-            # print()
-            # print('train')
-            # print()
+        # if self.is_train_depth:
             x, depth_pred = self.backbone(sweep_imgs = x,
                                           mats_dict=mats_dict,
                                           timestamps=timestamps,
@@ -97,9 +92,6 @@ class BaseBEVDepth(nn.Module):
             preds = self.head(x)
             return preds, depth_pred
         else:
-            # print()
-            # print('val')
-            # print()
             x = self.backbone(sweep_imgs=x, mats_dict=mats_dict, timestamps=timestamps)
             preds = self.head(x)
             return preds

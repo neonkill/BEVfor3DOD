@@ -36,9 +36,10 @@ class BEVDepthLightningModel(BaseBEVDepthLightningModel):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        #! No sweep -> ch = 80
         self.num_sweeps = 0
-        # self.sweep_idxes = [0]
         self.key_idxes = []
+        # self.sweep_idxes = [0] #original sweep o -> ch=160
         self.head_conf['bev_backbone_conf']['in_channels'] = 80 * (
             len(self.key_idxes) + 1)
         self.head_conf['bev_neck_conf']['in_channels'] = [

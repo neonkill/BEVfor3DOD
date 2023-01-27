@@ -441,7 +441,7 @@ class BaseLSSFPN(nn.Module):
         # B x N x D x H x W x 3
         points = self.frustum
         ida_mat = ida_mat.view(batch_size, num_cams, 1, 1, 1, 4, 4)
-        points = ida_mat.inverse().matmul(points.unsqueeze(-1))
+        points = ida_mat.inverse().matmul(points.unsqueeze(-1)) #! 
         # cam_to_ego
         points = torch.cat(
             (points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3],
