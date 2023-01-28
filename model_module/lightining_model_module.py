@@ -73,15 +73,6 @@ class ModelModule(pl.LightningModule):
         gt_labels = [gt_label.cuda() for gt_label in batch['gt_labels']]
         depth_labels = batch['depths']
         
-        # if torch.cuda.is_available():
-        #     for key, value in mats.items():
-        #         mats[key] = value.cuda()
-        #     imgs = imgs.cuda()
-        #     gt_boxes = [gt_box.cuda() for gt_box in gt_boxes]
-        #     gt_labels = [gt_label.cuda() for gt_label in gt_labels]
-
-        #* Forward
-        # preds, depth_preds = self(imgs, mats)
 
         #* Get Targets & Detection Loss
         if isinstance(self.fullmodel, torch.nn.parallel.DistributedDataParallel): #! 지워도?
@@ -92,15 +83,17 @@ class ModelModule(pl.LightningModule):
             detection_loss = self.fullmodel.loss(targets, preds)
 
         #* Depth Loss
-        if len(depth_labels.shape) == 5:
-            # only key-frame will calculate depth loss
-            depth_labels = depth_labels[:, 0, ...]
-        depth_loss = self.fullmodel.depth_loss(depth_labels.cuda(), depth_preds)
+        # if len(depth_labels.shape) == 5:
+        #     # only key-frame will calculate depth loss
+        #     depth_labels = depth_labels[:, 0, ...]
+        # depth_loss = self.fullmodel.depth_loss(depth_labels.cuda(), depth_preds)
 
         self.log('detection_loss', detection_loss)
-        self.log('depth_loss', depth_loss)
+        # self.log('depth_loss', depth_loss)
 
-        return detection_loss + depth_loss
+        # return detection_loss + depth_loss
+        return detection_loss
+
 
     def validation_step(self, batch, batch_idx):
         return self.eval_step(batch, batch_idx, 'val')

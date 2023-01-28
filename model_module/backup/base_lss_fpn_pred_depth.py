@@ -401,7 +401,7 @@ class BaseLSSFPN(nn.Module):
                     n, h, c, w, d).permute(0, 2, 4, 1, 3).contiguous().float())
         return img_feat_with_depth
 
-    def create_frustum(self, use_gt=None):
+    def create_frustum(self):
         """Generate frustum"""
         # make grid in image plane
         ogfH, ogfW = self.final_dim
@@ -409,31 +409,19 @@ class BaseLSSFPN(nn.Module):
         d_coords = torch.arange(*self.d_bound,
                                 dtype=torch.float).view(-1, 1,
                                                         1).expand(-1, fH, fW)
-        D, _, _ = d_coords.shape #! [1, 16, 44])
+        D, _, _ = d_coords.shape
         x_coords = torch.linspace(0, ogfW - 1, fW, dtype=torch.float).view(
             1, 1, fW).expand(D, fH, fW)
         y_coords = torch.linspace(0, ogfH - 1, fH,
                                   dtype=torch.float).view(1, fH,
                                                           1).expand(D, fH, fW)
-
-        if use_gt is not None:
-            #! depth = 3, 6, 1, 16, 44
-            d_coords = use_gt.cpu()
-            # print(d_coords.min(), d_coords.max()) #! 0, 112
-            # print('d_coords: ', d_coords.shape) #![3, 6, 1, 16, 44])
-            B, N, D, _,_ = d_coords.shape 
-            x_coords = torch.linspace(0, ogfW - 1, fW, dtype=torch.float).view(
-                1, 1, fW).expand(B, N, D, fH, fW)
-            y_coords = torch.linspace(0, ogfH - 1, fH,
-                                    dtype=torch.float).view(1, fH,
-                                                            1).expand(B, N, D, fH, fW)
         paddings = torch.ones_like(d_coords)
-        
+
         # D x H x W x 3
         frustum = torch.stack((x_coords, y_coords, d_coords, paddings), -1)
         return frustum
 
-    def get_geometry(self, sensor2ego_mat, intrin_mat, ida_mat, bda_mat, depth=None):
+    def get_geometry(self, sensor2ego_mat, intrin_mat, ida_mat, bda_mat):
         """Transfer points from camera coord to ego coord.
 
         Args:
@@ -451,32 +439,14 @@ class BaseLSSFPN(nn.Module):
 
         # undo post-transformation
         # B x N x D x H x W x 3
-        if depth is None:
-            points = self.frustum
-        # depth 18 1 16 44 
-        # 3 6 1 16 44 
-        # depth.shape[1]:
-        #     create_frustum(depth[:, i, :,:,:]) # 3 1 16 44
-        
-        # print('depth.shape',depth.shape) #! depth: [18, 1,  16, 44]
-        else:
-            _, D, H, W = depth.shape
-            depth = depth.view(batch_size, num_cams, D, H, W) #! 3, 6, 1, 16, 44
-            points = self.create_frustum(use_gt=depth).cuda()
-        # print('points.shape: ', points.shape) #! [3, 6, 1, 16, 44, 4])
+        points = self.frustum
         ida_mat = ida_mat.view(batch_size, num_cams, 1, 1, 1, 4, 4)
-        
-        points = ida_mat.inverse().matmul(points.unsqueeze(-1)) 
-        #! ida_mat: [3, 6, 1, 1,  1,  4, 4]
-        #! points:  [3, 6, 1, 16, 44, 4, 1]
-        # print('points1 : ', points.shape)
-        #! [3, 6, 1, 16, 44, 4, 1]
-
-        #* cam_to_ego
+        points = ida_mat.inverse().matmul(points.unsqueeze(-1)) #! 
+        # cam_to_ego
         points = torch.cat(
             (points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3],
              points[:, :, :, :, :, 2:]), 5)
-        # print('points2 : ', points.shape) #! ([3, 6, 1, 16, 44, 4, 1])
+
         combine = sensor2ego_mat.matmul(torch.inverse(intrin_mat))
         points = combine.view(batch_size, num_cams, 1, 1, 1, 4,
                               4).matmul(points)
@@ -486,7 +456,6 @@ class BaseLSSFPN(nn.Module):
             points = (bda_mat @ points).squeeze(-1)
         else:
             points = points.squeeze(-1)
-        # print('points[..., :3]: ',points[..., :3].shape) #! ([3, 6, 1, 16, 44, 3])
         return points[..., :3]
 
     def get_cam_feats(self, imgs):
@@ -548,19 +517,21 @@ class BaseLSSFPN(nn.Module):
                                     source_features.shape[4]),
             mats_dict,
         )
-        # # print('depth before softmax', depth_feature[:, :self.depth_channels].shape)
-        # #! depth before softmax torch.Size([18, 112, 16, 44])
-        # depth = depth_feature[:, :self.depth_channels].softmax(1)
+        # print('depth before softmax', depth_feature[:, :self.depth_channels].shape)
+        #! depth before softmax torch.Size([18, 112, 16, 44])
+        depth = depth_feature[:, :self.depth_channels].softmax(1)
         #!#####################################################################
-        depth = depth_gt 
-        #! Depth:   (B*N, 1, D, H, W) = [18, 1, 16, 44]
+        # depth = depth_gt
 
-        img_feat_with_depth = depth_feature[:, self.depth_channels:(
+
+        # print('depth', depth.shape) 
+        #! [18, 112, 16, 44]) = (B*N, D, H, W)
+        img_feat_with_depth = depth.unsqueeze(
+            1) * depth_feature[:, self.depth_channels:(
                 self.depth_channels + self.output_channels)].unsqueeze(2)
         # print('context', depth_feature[:, self.depth_channels:(self.depth_channels + self.output_channels)].unsqueeze(2).shape)
-        # print("img with ", img_feat_with_depth.shape)
+        #! Depth:   (B*N, 1, D, H, W) = [18, 1, 112, 16, 44]
         #! Context: (B*N, O, 1, H, W) = [18, 80, 1, 16, 44] 
-        #! img with  [18, 80, 1, 16, 44]
         img_feat_with_depth = self._forward_voxel_net(img_feat_with_depth)
 
         img_feat_with_depth = img_feat_with_depth.reshape(
@@ -576,14 +547,12 @@ class BaseLSSFPN(nn.Module):
             mats_dict['intrin_mats'][:, sweep_index, ...],
             mats_dict['ida_mats'][:, sweep_index, ...],
             mats_dict.get('bda_mat', None),
-            depth
         )
         img_feat_with_depth = img_feat_with_depth.permute(0, 1, 3, 4, 5, 2)
-        # print('img_feat_with_depth: ',img_feat_with_depth.shape) #! ([3, 6, D, 16, 44, 80])
-        
+        # print('img_feat_with_depth: ',img_feat_with_depth.shape)
+        #! ([3, 6, 112, 16, 44, 80])
         geom_xyz = ((geom_xyz - (self.voxel_coord - self.voxel_size / 2.0)) /
                     self.voxel_size).int()
-        # print('geom: ',geom_xyz.shape) #! ([3, 6, 1, 16, 44, 3])
         feature_map = voxel_pooling(geom_xyz, img_feat_with_depth.contiguous(),
                                     self.voxel_num.cuda())
         if is_return_depth:

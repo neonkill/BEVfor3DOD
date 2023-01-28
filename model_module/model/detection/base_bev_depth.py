@@ -74,7 +74,15 @@ class BaseBEVDepth(nn.Module):
         intrinsics = torch.eye(4).expand(b, n, 4, 4)    # B, 6, 3, 3
         intrinsics = intrinsics.clone()
         intrinsics[:,:,:3,:3] = batch['intrinsics']     # B, 6, 4, 4
-        # print('batch[bda]',batch['bda_mats'].shape)
+
+        depth_gt = batch['depths']
+        if len(depth_gt.shape) == 5:
+            # only key-frame will calculate depth loss
+            depth_gt = depth_gt[:, 0, ...]
+        # print('depth_gt: ',depth_gt.shape) 
+        #! depth_gt: torch.Size([3, 6, 256, 704]) = ( B, N, H*16, W*16 )
+
+        depth_gt = self.get_downsampled_raw_gtdepth(depth_gt)
 
         
         mats_dict = {'sensor2ego_mats': batch['sensor2ego_mats'].unsqueeze(1).cuda(),
@@ -86,21 +94,20 @@ class BaseBEVDepth(nn.Module):
                     }
 
         # if self.is_train_depth and self.training:
-        if self.is_train_depth and self.training:
-            # print()
-            # print('train')
-            # print()
+        if self.is_train_depth and self.training: 
             x, depth_pred = self.backbone(sweep_imgs = x,
                                           mats_dict=mats_dict,
                                           timestamps=timestamps,
+                                          depth_gt = depth_gt,
                                           is_return_depth=True)
             preds = self.head(x)
+            # print('depth_pred: ',depth_pred.shape) 
+            #! depth_pred: torch.Size([18, 112, 16, 44]) = (B*N, D, H, W)
+            # exit()
             return preds, depth_pred
         else:
-            # print()
-            # print('val')
-            # print()
-            x = self.backbone(sweep_imgs=x, mats_dict=mats_dict, timestamps=timestamps)
+            # Validate
+            x = self.backbone(sweep_imgs=x, mats_dict=mats_dict, timestamps=timestamps,depth_gt = depth_gt)
             preds = self.head(x)
             return preds
 
@@ -154,6 +161,79 @@ class BaseBEVDepth(nn.Module):
 
         return 3.0 * depth_loss
 
+    def get_downsampled_raw_gtdepth(self, gt_depths):
+        """
+        Input:
+            gt_depths: [B, N, H, W]
+        Output:
+            gt_depths: [B*N*h*w, d]
+        """
+        B, N, H, W = gt_depths.shape
+        gt_depths = gt_depths.view(
+            B * N,
+            H // self.downsample_factor,
+            self.downsample_factor,
+            W // self.downsample_factor,
+            self.downsample_factor,
+            1,
+        )
+        # print('gt_depths view1: ', gt_depths.shape) #! [18, 16, 16, 44, 16, 1])
+
+        gt_depths = gt_depths.permute(0, 1, 3, 5, 2, 4).contiguous()
+        # print('gt_depths view2: ', gt_depths.shape) #! ([18, 16, 44, 1, 16, 16])
+
+        gt_depths = gt_depths.view(
+            -1, self.downsample_factor * self.downsample_factor)
+        # print('gt_depths view3: ', gt_depths.shape) #! ([12672, 256])
+
+        #* if depth == 0: 1e-5 대입
+        gt_depths_tmp = torch.where(gt_depths == 0.0,
+                                    1e5 * torch.ones_like(gt_depths),
+                                    gt_depths)
+        # print('gt_depth view3-1: ', gt_depths_tmp.shape) #! ([12672, 256])
+        # print('0. min, max: ',gt_depths_tmp.min(), gt_depths_tmp.max())
+        #! min: 0.0553 or 0.0143 / max: 10000
+
+        #* 각 256마다 min pooling, 가장 가까운 depth를 label로 쓰기 위해서 
+        gt_depths = torch.min(gt_depths_tmp, dim=-1).values  
+        # print('gt_depth view3-2: ', gt_depths.shape) #! [12672]
+       
+        gt_depths = gt_depths.view(B * N, H // self.downsample_factor,
+                                   W // self.downsample_factor)
+        # print('gt_depths view4: ', gt_depths.shape) #! ([18, 16, 44])
+        # print('1. min, max: ',gt_depths.min(), gt_depths.max())
+        #! 1. min, max: 0.0143, 100000
+        
+        #* 2 ~ 58m -> 112 bin
+        # (depth - (2-0.5)) /0.5
+        gt_depths = (gt_depths -
+                     (self.dbound[0] - self.dbound[2])) / self.dbound[2]
+        # print(self.dbound)
+        # print('2. min, max: ',gt_depths.min(), gt_depths.max())
+        #! 2. min, max: -2.9714, 199997
+        # print('gt_depths view5: ', gt_depths.shape) #! ([18, 16, 44])
+        
+        #! (depth < 112+1) and (depth > 0.0) 
+        gt_depths = torch.where(
+            (gt_depths < self.depth_channels + 1) & (gt_depths >= 0.0),
+            gt_depths, torch.zeros_like(gt_depths))
+        # print('gt_depths view6: ', gt_depths.shape) #! ([18, 16, 44])
+        # print('3. min, max: ',gt_depths.min(), gt_depths.max())
+        #! 3. min, max: 0, 112.xx
+
+        gt_depths = gt_depths.unsqueeze(1)
+        
+        # gt_depths = F.one_hot(gt_depths.long(),
+        #                       num_classes=self.depth_channels + 1).view(
+        #                           -1, self.depth_channels + 1)[:, 1:]
+        # print('gt_depths view7: ', gt_depths.shape) #! ([12672, 112])
+        
+        gt_depths = gt_depths.long().float()
+        # print('res. min, max: ',gt_depths.min(), gt_depths.max()) #! 0, 112
+
+        return gt_depths
+
+    #! DO one-hot vector
     def get_downsampled_gt_depth(self, gt_depths):
         """
         Input:
@@ -170,24 +250,54 @@ class BaseBEVDepth(nn.Module):
             self.downsample_factor,
             1,
         )
+        # print('gt_depths view1: ', gt_depths.shape) #! [18, 16, 16, 44, 16, 1])
         gt_depths = gt_depths.permute(0, 1, 3, 5, 2, 4).contiguous()
+        # print('gt_depths view2: ', gt_depths.shape) #! ([18, 16, 44, 1, 16, 16])
+
         gt_depths = gt_depths.view(
             -1, self.downsample_factor * self.downsample_factor)
+        # print('gt_depths view3: ', gt_depths.shape) #! ([12672, 256])
+        #! if depth == 0: 1e-5 대입
         gt_depths_tmp = torch.where(gt_depths == 0.0,
                                     1e5 * torch.ones_like(gt_depths),
                                     gt_depths)
-        gt_depths = torch.min(gt_depths_tmp, dim=-1).values
+
+        # print('gt_depth view3-1: ', gt_depths_tmp.shape) #! ([12672, 256])
+        # print('0. min, max: ',gt_depths_tmp.min(), gt_depths_tmp.max())
+        #! min: 0.0553 or 0.0143 / max: 10000
+
+        #* 각 256마다 min pooling, 가장 가까운 depth를 label로 쓰기 위해서 
+        gt_depths = torch.min(gt_depths_tmp, dim=-1).values  
+        # print('gt_depth view3-2: ', gt_depths.shape) #! [12672]
+       
         gt_depths = gt_depths.view(B * N, H // self.downsample_factor,
                                    W // self.downsample_factor)
-
+        # print('gt_depths view4: ', gt_depths.shape) #! ([18, 16, 44])
+        # print('1. min, max: ',gt_depths.min(), gt_depths.max())
+        #! 1. min, max: 0.0143, 100000
+        
+        #* 2 ~ 58m -> 112 bin
+        # (depth - (2-0.5)) /0.5
         gt_depths = (gt_depths -
                      (self.dbound[0] - self.dbound[2])) / self.dbound[2]
+        # print(self.dbound)
+        # print('2. min, max: ',gt_depths.min(), gt_depths.max())
+        #! 2. min, max: -2.9714, 199997
+        # print('gt_depths view5: ', gt_depths.shape) #! ([18, 16, 44])
+
+        #! (depth < 112+1) and (depth > 0.0) 
         gt_depths = torch.where(
             (gt_depths < self.depth_channels + 1) & (gt_depths >= 0.0),
             gt_depths, torch.zeros_like(gt_depths))
+        # print('gt_depths view6: ', gt_depths.shape) #! ([18, 16, 44])
+        # print('3. min, max: ',gt_depths.min(), gt_depths.max())
+        #! 3. min, max: 0, 112.xx
+        
         gt_depths = F.one_hot(gt_depths.long(),
                               num_classes=self.depth_channels + 1).view(
                                   -1, self.depth_channels + 1)[:, 1:]
+        # print('gt_depths view7: ', gt_depths.shape) #! ([12672, 112])
+        
 
         return gt_depths.float()
     #! ##############################
