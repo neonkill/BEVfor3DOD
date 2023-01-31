@@ -20,10 +20,13 @@ from pyquaternion import Quaternion
 from nuscenes.utils.data_classes import Box, LidarPointCloud
 from mmdet3d.core.bbox.structures.lidar_box3d import LiDARInstance3DBoxes
 
-# H = 900
-# W = 1600
-# final_dim = (256, 704)
 
+'''
+Used in 3D O.D
+
+image_aug: ida_aug (BEVDepth type)
+bda_aug: GT Box in BEV Frame Augmentation (BEVDepth type)
+'''
 # np.random.seed(45)
 
 class Sample(dict):
@@ -162,27 +165,6 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         sensor2sensor_mat = np.full((4, 4), 1e-9, dtype=np.float32)
         np.fill_diagonal(sensor2sensor_mat, 1.0)
         return sensor2sensor_mat
-
-    # resize: [0.44, 0.344] / resize_dim[704, 310] / crop [0, 54, 704, 310]
-    # def get_img_transform(self, resize, crop):
-    #     '''
-    #     resize: [w, h]
-    #     '''
-    #     ida_rot = torch.eye(2)
-    #     ida_tran = torch.zeros(2)
-
-    #     ida_rot[0,:] *= resize[0]
-    #     ida_rot[1,:] *= resize[1]
-
-    #     ida_tran -= torch.Tensor(crop[:2])
-
-    #     ida_mat = ida_rot.new_zeros(4, 4)
-    #     ida_mat[3, 3] = 1
-    #     ida_mat[2, 2] = 1
-    #     ida_mat[:2, :2] = ida_rot
-    #     ida_mat[:2, 3] = ida_tran
-        
-    #     return ida_mat
 
 
     def get_lidar_depth(self, lidar_points, img, 
@@ -335,14 +317,8 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
 
             # intrinsic
             I = np.float32(I_original)
-            # I[0, 0] *= w / image.width
-            # I[0, 2] *= w / image.width
-            # I[1, 1] *= h / image.height
-            # I[1, 2] *= h / image.height
-            # I[1, 2] -= top_crop
 
             sensor2ego_mat = np.float32(sensor2ego_mat)
-
             images.append(image_new)
             intrinsics.append(torch.tensor(I))
             sensor2ego_mats.append(torch.tensor(sensor2ego_mat))
@@ -360,7 +336,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         return {
             'cam_idx': torch.LongTensor(sample.cam_ids),
             'image': torch.stack(images, 0),
-            'images_before_crop': torch.stack(images_before_crop, 0),
+            # 'images_before_crop': torch.stack(images_before_crop, 0),
             'intrinsics': torch.stack(intrinsics, 0),
             'extrinsics': torch.tensor(np.float32(sample.extrinsics)),
             'sensor2sensor_mats': torch.stack(sensor2sensor_mats, 0),

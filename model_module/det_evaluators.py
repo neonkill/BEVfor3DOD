@@ -255,9 +255,7 @@ class DetNuscEvaluator():
             boxes = boxes
             sample_token = img_metas[sample_id]['token']
             #! .cpu() when our dataset
-            trans = np.array(img_metas[sample_id]['ego2global_translation'].cpu())
-            # print(img_metas[sample_id]['ego2global_rotation'].shape)
-            # print(img_metas[sample_id]['ego2global_rotation'].cpu())
+            trans = np.array(img_metas[sample_id]['ego2global_translation'].cpu()) 
             rot = Quaternion(np.array(img_metas[sample_id]['ego2global_rotation'].cpu()))
             annos = list()
             for i, box in enumerate(boxes):

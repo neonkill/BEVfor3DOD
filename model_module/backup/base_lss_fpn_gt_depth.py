@@ -452,20 +452,31 @@ class BaseLSSFPN(nn.Module):
         # undo post-transformation
         # B x N x D x H x W x 3
         if depth is None:
-            points = self.frustum 
+            points = self.frustum
+        # depth 18 1 16 44 
+        # 3 6 1 16 44 
+        # depth.shape[1]:
+        #     create_frustum(depth[:, i, :,:,:]) # 3 1 16 44
+        
+        # print('depth.shape',depth.shape) #! depth: [18, 1,  16, 44]
         else:
             _, D, H, W = depth.shape
             depth = depth.view(batch_size, num_cams, D, H, W) #! 3, 6, 1, 16, 44
-            points = self.create_frustum(use_gt=depth).cuda() 
-
+            points = self.create_frustum(use_gt=depth).cuda()
+        # print('points.shape: ', points.shape) #! [3, 6, 1, 16, 44, 4])
         ida_mat = ida_mat.view(batch_size, num_cams, 1, 1, 1, 4, 4)
-        points = ida_mat.inverse().matmul(points.unsqueeze(-1))  
+        
+        points = ida_mat.inverse().matmul(points.unsqueeze(-1)) 
+        #! ida_mat: [3, 6, 1, 1,  1,  4, 4]
+        #! points:  [3, 6, 1, 16, 44, 4, 1]
+        # print('points1 : ', points.shape)
+        #! [3, 6, 1, 16, 44, 4, 1]
 
         #* cam_to_ego
         points = torch.cat(
             (points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3],
-             points[:, :, :, :, :, 2:]), 5) 
-             
+             points[:, :, :, :, :, 2:]), 5)
+        # print('points2 : ', points.shape) #! ([3, 6, 1, 16, 44, 4, 1])
         combine = sensor2ego_mat.matmul(torch.inverse(intrin_mat))
         points = combine.view(batch_size, num_cams, 1, 1, 1, 4,
                               4).matmul(points)
@@ -474,8 +485,8 @@ class BaseLSSFPN(nn.Module):
                 batch_size, num_cams, 1, 1, 1, 4, 4)
             points = (bda_mat @ points).squeeze(-1)
         else:
-            points = points.squeeze(-1) 
-
+            points = points.squeeze(-1)
+        # print('points[..., :3]: ',points[..., :3].shape) #! ([3, 6, 1, 16, 44, 3])
         return points[..., :3]
 
     def get_cam_feats(self, imgs):
@@ -492,7 +503,6 @@ class BaseLSSFPN(nn.Module):
 
     def _forward_depth_net(self, feat, mats_dict):
         return self.depth_net(feat, mats_dict)
-
 
     def _forward_single_sweep(self,
                               sweep_index,
@@ -530,19 +540,27 @@ class BaseLSSFPN(nn.Module):
         source_features = img_feats[:, 0, ...]
 
 
-        #! DEPTH 
+        #! DEPTH ##############################################################
         depth_feature = self._forward_depth_net(
             source_features.reshape(batch_size * num_cams,
                                     source_features.shape[2],
                                     source_features.shape[3],
                                     source_features.shape[4]),
             mats_dict,
-        ) 
-        depth = depth_gt  
+        )
+        # # print('depth before softmax', depth_feature[:, :self.depth_channels].shape)
+        # #! depth before softmax torch.Size([18, 112, 16, 44])
+        # depth = depth_feature[:, :self.depth_channels].softmax(1)
+        #!#####################################################################
+        depth = depth_gt 
+        #! Depth:   (B*N, 1, D, H, W) = [18, 1, 16, 44]
 
         img_feat_with_depth = depth_feature[:, self.depth_channels:(
                 self.depth_channels + self.output_channels)].unsqueeze(2)
-                
+        # print('context', depth_feature[:, self.depth_channels:(self.depth_channels + self.output_channels)].unsqueeze(2).shape)
+        # print("img with ", img_feat_with_depth.shape)
+        #! Context: (B*N, O, 1, H, W) = [18, 80, 1, 16, 44] 
+        #! img with  [18, 80, 1, 16, 44]
         img_feat_with_depth = self._forward_voxel_net(img_feat_with_depth)
 
         img_feat_with_depth = img_feat_with_depth.reshape(
@@ -560,11 +578,12 @@ class BaseLSSFPN(nn.Module):
             mats_dict.get('bda_mat', None),
             depth
         )
-        img_feat_with_depth = img_feat_with_depth.permute(0, 1, 3, 4, 5, 2) 
+        img_feat_with_depth = img_feat_with_depth.permute(0, 1, 3, 4, 5, 2)
+        # print('img_feat_with_depth: ',img_feat_with_depth.shape) #! ([3, 6, D, 16, 44, 80])
         
         geom_xyz = ((geom_xyz - (self.voxel_coord - self.voxel_size / 2.0)) /
-                    self.voxel_size).int() 
-
+                    self.voxel_size).int()
+        # print('geom: ',geom_xyz.shape) #! ([3, 6, 1, 16, 44, 3])
         feature_map = voxel_pooling(geom_xyz, img_feat_with_depth.contiguous(),
                                     self.voxel_num.cuda())
         if is_return_depth:
@@ -604,6 +623,21 @@ class BaseLSSFPN(nn.Module):
         batch_size, num_sweeps, num_cams, num_channels, img_height, \
             img_width = sweep_imgs.shape
             
+        # print(sweep_imgs.shape)
+        # for k,v in mats_dict.items():
+        #     print(f'{k}:{v.shape}')
+        #     if k == 'sensor2sensor_mats':
+        #         print(v[0,0,:])
+            
+        # exit()
+        # if depth_gt is not None:
+        #     key_frame_res = self._forward_single_sweep(
+        #     0,
+        #     sweep_imgs[:, 0:1, ...],
+        #     mats_dict,
+        #     depth_gt,
+        #     is_return_depth=is_return_depth)
+        # else:
         key_frame_res = self._forward_single_sweep(
             0,
             sweep_imgs[:, 0:1, ...],

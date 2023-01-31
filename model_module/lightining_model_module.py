@@ -44,7 +44,6 @@ class ModelModule(pl.LightningModule):
         self.save_hyperparameters(
             cfg,
             ignore=['fullmodel', 'loss_func', 'metrics', 'optimizer_args', 'scheduler_args'])
-        # self.gpus = 4 #! 
         # self.eval_interval = 1 #! 
         # self.batch_size_per_device = 4 #!
         self.basic_lr_per_img = 2e-4 
@@ -114,7 +113,8 @@ class ModelModule(pl.LightningModule):
     def configure_optimizers(self):
         # lr = self.basic_lr_per_img * \
         #     self.batch_size_per_device * self.gpus
-        lr = self.basic_lr_per_img
+        lr = self.optimizer_args.lr
+        # lr = self.basic_lr_per_img
         optimizer = torch.optim.AdamW(self.fullmodel.parameters(),
                                       lr=lr,
                                       weight_decay=1e-7)

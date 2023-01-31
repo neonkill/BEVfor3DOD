@@ -11,73 +11,13 @@ from data_module.nusc_det_dataset import NuscDetDataset, collate_fn
 from . import get_dataset_module_by_name
 
 
-# def get_split(split):
-#     path = Path(__file__).parent / 'splits' /  f'{split}.txt'
-#     return path.read_text().strip().split('\n')
-
 
 #! bev_depth_lss_r50_256x704_128x128_24e_2key의 conf 적용 완료
-# H = 900
-# W = 1600
-# final_dim = (256, 704)
-# img_conf = dict(img_mean=[123.675, 116.28, 103.53],
-#                 img_std=[58.395, 57.12, 57.375],
-#                 to_rgb=True)
 
-# ida_aug_conf = {
-#     'resize_lim': (0.386, 0.55),
-#     'final_dim':
-#     final_dim,
-#     'rot_lim': (-5.4, 5.4),
-#     'H':
-#     H,
-#     'W':
-#     W,
-#     'rand_flip':
-#     True,
-#     'bot_pct_lim': (0.0, 0.0),
-#     'cams': [
-#         'CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT',
-#         'CAM_BACK', 'CAM_BACK_RIGHT'
-#     ],
-#     'Ncams':
-#     6,
-# }
-
-# bda_aug_conf = {
-#     'rot_lim': (-22.5, 22.5),
-#     'scale_lim': (0.95, 1.05),
-#     'flip_dx_ratio': 0.5,
-#     'flip_dy_ratio': 0.5
-# }
-
-# CLASSES = [
-#     'car',
-#     'truck',
-#     'construction_vehicle',
-#     'bus',
-#     'trailer',
-#     'barrier',
-#     'motorcycle',
-#     'bicycle',
-#     'pedestrian',
-#     'traffic_cone',
-# ]
-
-
-# class_names = CLASSES
-# data_root='/usr/src/nuscenes'
-# train_info_paths = os.path.join(data_root,'nuscenes_infos_train.pkl')
-# val_info_paths = os.path.join(data_root,'nuscenes_infos_val.pkl')
-# data_use_cbgs = False
-# num_sweeps = 0
-# sweep_idxes = list()
-# key_idxes = list()
-# data_return_depth = True
-# use_fusion = False
-# batch_size_per_device=4
-# predict_info_paths = os.path.join(data_root,'nuscenes_infos_test.pkl')
 '''
+BEVDepth Dataset 이용 datamodule
+
+
 * dataset 공통 args
 ida_aug_conf
 bda_aug_conf
@@ -113,8 +53,6 @@ class DataModule(pl.LightningDataModule):
 
         if self.loader_config['num_workers'] == 0:
             self.loader_config['prefetch_factor'] = 2
-
-         #! return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
 
         return torch.utils.data.DataLoader(self.dataset,
                             drop_last=drop_last,

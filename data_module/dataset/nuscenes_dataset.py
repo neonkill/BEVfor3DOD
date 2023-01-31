@@ -80,7 +80,8 @@ def get_data(
     version,
     num_classes=NUM_CLASSES,            # in here to make config consistent
     **dataset_kwargs
-):
+):  #! yaml 파일로 줄 수 없는거 여기서 준다 !!
+    #! data.yaml로 줄 수 있는건 **datacfg in lightning_data_module
     assert num_classes == NUM_CLASSES
     
     helper = NuScenesSingleton(dataset_dir, version)

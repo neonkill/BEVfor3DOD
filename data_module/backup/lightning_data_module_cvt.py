@@ -10,7 +10,9 @@ from nuscenes.map_expansion.map_api import NuScenesMap
 
 from . import get_dataset_module_by_name
 
-
+'''
+CVT Style 3D Dataset 이용 datamodule 초기 코드
+'''
 # def get_split(split):
 #     path = Path(__file__).parent / 'splits' /  f'{split}.txt'
 #     return path.read_text().strip().split('\n')

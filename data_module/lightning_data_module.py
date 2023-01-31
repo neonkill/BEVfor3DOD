@@ -32,7 +32,6 @@ class DataModule(pl.LightningDataModule):
         if loader_config['num_workers'] == 0:
             loader_config['prefetch_factor'] = 2
 
-        #! return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
         return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
 
 
@@ -58,7 +57,7 @@ def collate_fn(batchs):
     sensor2ego_mats = []
     ida_mats = []
     img_metas = []
-    images_before_crop = [] #!
+    # images_before_crop = [] #!
     bda_mats =[]
 
 
@@ -78,10 +77,8 @@ def collate_fn(batchs):
         sensor2ego_mats.append(batch['sensor2ego_mats'])
         ida_mats.append(batch['ida_mats'])
         img_metas.append(batch['img_metas'])
-        images_before_crop.append(batch['images_before_crop'])
-        bda_mats.append(batch['bda_mat'])
-          #!
-
+        # images_before_crop.append(batch['images_before_crop'])#!
+        bda_mats.append(batch['bda_mat']) 
 
     results = {}
     results['bev'] = torch.stack(bevs, dim=0)
@@ -96,7 +93,7 @@ def collate_fn(batchs):
     results['sensor2sensor_mats'] = torch.stack(sensor2sensor_mats, dim=0)
     results['sensor2ego_mats'] = torch.stack(sensor2ego_mats, dim=0)
     results['ida_mats'] = torch.stack(ida_mats, dim=0)
-    results['images_before_crop'] = torch.stack(images_before_crop, dim=0)      #!
+    # results['images_before_crop'] = torch.stack(images_before_crop, dim=0)      #!
     
     results['img_metas'] = img_metas
     results['gt_boxes'] = gt_boxes

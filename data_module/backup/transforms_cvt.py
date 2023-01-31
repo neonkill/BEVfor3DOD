@@ -9,6 +9,11 @@ from .common import encode, decode
 from .augmentations import StrongAug, GeometricAug
 
 
+'''
+Used in Map-view Segmentation
+
+image_aug: 0~1 normalization + top crop
+'''
 class Sample(dict):
     def __init__(
         self,
