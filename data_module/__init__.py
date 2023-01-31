@@ -8,7 +8,7 @@
 from data_module.dataset import nuscenes_dataset
 from data_module.visualize import vis_nuscenes_dataset
 
-from data_module import nusc_det_dataset
+from data_module.backup import nusc_det_dataset
 from . import nuscenes_dataset_generated
 
 

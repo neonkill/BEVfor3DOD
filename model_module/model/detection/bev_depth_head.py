@@ -201,7 +201,8 @@ class BEVDepthHead(CenterHead):
         voxel_size = torch.tensor(self.train_cfg['voxel_size'])
 
         #! [256, 256]
-        feature_map_size = grid_size[:2] // self.train_cfg['out_size_factor']
+        feature_map_size = torch.div(grid_size[:2], self.train_cfg['out_size_factor'], rounding_mode='floor')
+        # feature_map_size = grid_size[:2] // self.train_cfg['out_size_factor']
 
         # reorganize the gt_dict by tasks
         task_masks = []
@@ -377,7 +378,8 @@ class BEVDepthHead(CenterHead):
             pred = pred.view(pred.size(0), -1, pred.size(3))
             pred = self._gather_feat(pred, ind)
             mask = masks[task_id].unsqueeze(2).expand_as(target_box).float()
-            num = torch.clamp(reduce_mean(target_box.new_tensor(num)),
+            target_box = num.clone().detach()
+            num = torch.clamp(reduce_mean(target_box),
                               min=1e-4).item()
             isnotnan = (~torch.isnan(target_box)).float()
             mask *= isnotnan

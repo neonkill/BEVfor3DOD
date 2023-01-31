@@ -46,7 +46,7 @@ class ModelModule(pl.LightningModule):
             ignore=['fullmodel', 'loss_func', 'metrics', 'optimizer_args', 'scheduler_args'])
         # self.eval_interval = 1 #! 
         # self.batch_size_per_device = 4 #!
-        self.basic_lr_per_img = 2e-4 
+        # self.basic_lr_per_img = 2e-4 
         self.fullmodel = fullmodel
         self.class_names = CLASSES 
 
@@ -67,7 +67,7 @@ class ModelModule(pl.LightningModule):
 
     def training_step(self, batch):
         # (imgs, mats, _, _, gt_boxes, gt_labels, depth_labels) = batch
-        preds, depth_preds = self(batch)
+        det_preds, depth_preds = self(batch)
         gt_boxes = [gt_box.cuda() for gt_box in batch['gt_boxes']]
         gt_labels = [gt_label.cuda() for gt_label in batch['gt_labels']]
         depth_labels = batch['depths']
@@ -76,53 +76,46 @@ class ModelModule(pl.LightningModule):
         #* Get Targets & Detection Loss
         if isinstance(self.fullmodel, torch.nn.parallel.DistributedDataParallel): #! 지워도?
             targets = self.fullmodel.module.get_targets(gt_boxes, gt_labels)
-            detection_loss = self.fullmodel.module.loss(targets, preds)
+            detection_loss = self.fullmodel.module.loss(targets, det_preds)
         else:
             targets = self.fullmodel.get_targets(gt_boxes, gt_labels)
-            detection_loss = self.fullmodel.loss(targets, preds)
+            detection_loss = self.fullmodel.loss(targets, det_preds)
 
         #* Depth Loss
-        # if len(depth_labels.shape) == 5:
-        #     # only key-frame will calculate depth loss
-        #     depth_labels = depth_labels[:, 0, ...]
-        # depth_loss = self.fullmodel.depth_loss(depth_labels.cuda(), depth_preds)
+        if len(depth_labels.shape) == 5:
+            # only key-frame will calculate depth loss
+            depth_labels = depth_labels[:, 0, ...]
+        depth_loss = self.fullmodel.depth_loss(depth_labels.cuda(), depth_preds)
 
         self.log('detection_loss', detection_loss)
-        # self.log('depth_loss', depth_loss)
+        self.log('depth_loss', depth_loss)
 
-        # return detection_loss + depth_loss
-        return detection_loss
+        return detection_loss + depth_loss
 
 
     def validation_step(self, batch, batch_idx):
-        return self.eval_step(batch, batch_idx, 'val')
+        return self.eval_step(batch, batch_idx)
 
     def test_step(self, batch, batch_idx):
-        return self.eval_step(batch, batch_idx, 'test')
-
-    def predict_step(self, batch, batch_idx):
-        return self.eval_step(batch, batch_idx, 'predict')
+        return self.eval_step(batch, batch_idx)
 
     def validation_epoch_end(self, validation_step_outputs):
         self.get_metrics(validation_step_outputs, len(self.trainer.val_dataloaders[0].dataset))
 
     def test_epoch_end(self, test_step_outputs):
-
         self.get_metrics(test_step_outputs, len(self.trainer.test_dataloaders[0].dataset))
 
     def configure_optimizers(self):
         # lr = self.basic_lr_per_img * \
         #     self.batch_size_per_device * self.gpus
-        lr = self.optimizer_args.lr
-        # lr = self.basic_lr_per_img
         optimizer = torch.optim.AdamW(self.fullmodel.parameters(),
-                                      lr=lr,
-                                      weight_decay=1e-7)
-        scheduler = MultiStepLR(optimizer, [19, 23])
+                                      lr=self.optimizer_args.lr,
+                                      weight_decay=self.optimizer_args.weight_decay)
+        scheduler = MultiStepLR(optimizer, self.scheduler_args.bound)
         return [[optimizer], [scheduler]]
              
 
-    def eval_step(self, batch, batch_idx, prefix: str):
+    def eval_step(self, batch, batch_idx):
 
         preds = self(batch)
             
