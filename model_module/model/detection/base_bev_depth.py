@@ -93,7 +93,6 @@ class BaseBEVDepth(nn.Module):
                     'bda_mat': batch['bda_mats'].cuda()
                     }
 
-        # if self.is_train_depth and self.training:
         if self.is_train_depth and self.training: 
             x, depth_pred = self.backbone(sweep_imgs = x,
                                           mats_dict=mats_dict,
@@ -103,7 +102,6 @@ class BaseBEVDepth(nn.Module):
             preds = self.head(x)
             # print('depth_pred: ',depth_pred.shape) 
             #! depth_pred: torch.Size([18, 112, 16, 44]) = (B*N, D, H, W)
-            # exit()
             return preds, depth_pred
         else:
             # Validate

@@ -137,26 +137,26 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
 
         #! BEVDepth aug vars
         self.is_train = is_train
-        self.ida_aug_conf ={ 'resize_lim': [0.386, 0.55],
-                        'final_dim':  [256, 704],
-                        'rot_lim': [-5.4, 5.4],
-                        'H': 900,
-                        'W': 1600,
-                        'rand_flip': True,
-                        'bot_pct_lim' : [0.0, 0.0],
-                        'cams': ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT',
-                            'CAM_BACK', 'CAM_BACK_RIGHT' ],
-                        'Ncams': 6 }
+        # self.ida_aug_conf ={ 'resize_lim': [0.386, 0.55],
+        #                 'final_dim':  [256, 704],
+        #                 'rot_lim': [-5.4, 5.4],
+        #                 'H': 900,
+        #                 'W': 1600,
+        #                 'rand_flip': True,
+        #                 'bot_pct_lim' : [0.0, 0.0],
+        #                 'cams': ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT',
+        #                     'CAM_BACK', 'CAM_BACK_RIGHT' ],
+        #                 'Ncams': 6 }
         self.bda_aug_conf= { 'rot_lim': [-22.5, 22.5],
                         'scale_lim': [0.95, 1.05],
                         'flip_dx_ratio': 0.5,
                         'flip_dy_ratio': 0.5 }
-        self.img_conf = dict(img_mean=[123.675, 116.28, 103.53],
-                        img_std=[58.395, 57.12, 57.375],
-                        to_rgb=True)
-        self.img_mean = np.array(self.img_conf['img_mean'], np.float32)
-        self.img_std = np.array(self.img_conf['img_std'], np.float32)
-        self.to_rgb = self.img_conf['to_rgb']
+        # self.img_conf = dict(img_mean=[123.675, 116.28, 103.53],
+        #                 img_std=[58.395, 57.12, 57.375],
+        #                 to_rgb=True)
+        # self.img_mean = np.array(self.img_conf['img_mean'], np.float32)
+        # self.img_std = np.array(self.img_conf['img_std'], np.float32)
+        # self.to_rgb = self.img_conf['to_rgb']
 
     def get_sensor2sensor_mat(self):
         sensor2sensor_mat = np.full((4, 4), 1e-9, dtype=np.float32)
@@ -200,71 +200,71 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
 
         return np.concatenate([pts_img[:2, :].T, depth[:, None]],axis=1).astype(np.float32)
 
-    def img_transform(self, img, resize, resize_dims, crop, flip, rotate):
-        ida_rot = torch.eye(2)
-        ida_tran = torch.zeros(2)
+    # def img_transform(self, img, resize, resize_dims, crop, flip, rotate):
+    #     ida_rot = torch.eye(2)
+    #     ida_tran = torch.zeros(2)
 
-        # adjust image
-        img = img.resize(resize_dims)
-        img = img.crop(crop)
-        if flip:
-            img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
-        img = img.rotate(rotate)
+    #     # adjust image
+    #     img = img.resize(resize_dims)
+    #     img = img.crop(crop)
+    #     if flip:
+    #         img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
+    #     img = img.rotate(rotate)
 
-        # post-homography transformation
-        ida_rot *= resize
-        ida_tran -= torch.Tensor(crop[:2])
-        if flip:
-            A = torch.Tensor([[-1, 0], [0, 1]])
-            b = torch.Tensor([crop[2] - crop[0], 0])
-            ida_rot = A.matmul(ida_rot)
-            ida_tran = A.matmul(ida_tran) + b
-        A = self.get_rot(rotate / 180 * np.pi)
-        b = torch.Tensor([crop[2] - crop[0], crop[3] - crop[1]]) / 2
-        b = A.matmul(-b) + b
-        ida_rot = A.matmul(ida_rot)
-        ida_tran = A.matmul(ida_tran) + b
-        ida_mat = ida_rot.new_zeros(4, 4)
-        ida_mat[3, 3] = 1
-        ida_mat[2, 2] = 1
-        ida_mat[:2, :2] = ida_rot
-        ida_mat[:2, 3] = ida_tran
-        return img, ida_mat
+    #     # post-homography transformation
+    #     ida_rot *= resize
+    #     ida_tran -= torch.Tensor(crop[:2])
+    #     if flip:
+    #         A = torch.Tensor([[-1, 0], [0, 1]])
+    #         b = torch.Tensor([crop[2] - crop[0], 0])
+    #         ida_rot = A.matmul(ida_rot)
+    #         ida_tran = A.matmul(ida_tran) + b
+    #     A = self.get_rot(rotate / 180 * np.pi)
+    #     b = torch.Tensor([crop[2] - crop[0], crop[3] - crop[1]]) / 2
+    #     b = A.matmul(-b) + b
+    #     ida_rot = A.matmul(ida_rot)
+    #     ida_tran = A.matmul(ida_tran) + b
+    #     ida_mat = ida_rot.new_zeros(4, 4)
+    #     ida_mat[3, 3] = 1
+    #     ida_mat[2, 2] = 1
+    #     ida_mat[:2, :2] = ida_rot
+    #     ida_mat[:2, 3] = ida_tran
+    #     return img, ida_mat
 
-    def get_rot(self, h):
-        return torch.Tensor([
-            [np.cos(h), np.sin(h)],
-            [-np.sin(h), np.cos(h)],
-        ])
+    # def get_rot(self, h):
+    #     return torch.Tensor([
+    #         [np.cos(h), np.sin(h)],
+    #         [-np.sin(h), np.cos(h)],
+    #     ])
 
-    def sample_ida_augmentation(self):
-        """Generate ida augmentation values based on ida_config."""
-        H, W = self.ida_aug_conf['H'], self.ida_aug_conf['W']
-        fH, fW = self.ida_aug_conf['final_dim']
-        if self.is_train:
-            resize = np.random.uniform(*self.ida_aug_conf['resize_lim'])
-            resize_dims = (int(W * resize), int(H * resize))
-            newW, newH = resize_dims
-            crop_h = int(
-                (1 - np.random.uniform(*self.ida_aug_conf['bot_pct_lim'])) *
-                newH) - fH
-            crop_w = int(np.random.uniform(0, max(0, newW - fW)))
-            crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
-            flip = False
-            if self.ida_aug_conf['rand_flip'] and np.random.choice([0, 1]):
-                flip = True
-            rotate_ida = np.random.uniform(*self.ida_aug_conf['rot_lim'])
-        else:
-            resize = max(fH / H, fW / W)
-            resize_dims = (int(W * resize), int(H * resize))
-            newW, newH = resize_dims
-            crop_h = int(
-                (1 - np.mean(tuple(self.ida_aug_conf['bot_pct_lim']))) * newH) - fH
-            crop_w = int(max(0, newW - fW) / 2)
-            crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
-            flip = False
-            rotate_ida = 0
-        return resize, resize_dims, crop, flip, rotate_ida
+    # def sample_ida_augmentation(self):
+    #     """Generate ida augmentation values based on ida_config."""
+    #     H, W = self.ida_aug_conf['H'], self.ida_aug_conf['W']
+    #     fH, fW = self.ida_aug_conf['final_dim']
+    #     if self.is_train:
+    #         resize = np.random.uniform(*self.ida_aug_conf['resize_lim'])
+    #         resize_dims = (int(W * resize), int(H * resize))
+    #         newW, newH = resize_dims
+    #         crop_h = int(
+    #             (1 - np.random.uniform(*self.ida_aug_conf['bot_pct_lim'])) *
+    #             newH) - fH
+    #         crop_w = int(np.random.uniform(0, max(0, newW - fW)))
+    #         crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
+    #         flip = False
+    #         if self.ida_aug_conf['rand_flip'] and np.random.choice([0, 1]):
+    #             flip = True
+    #         rotate_ida = np.random.uniform(*self.ida_aug_conf['rot_lim'])
+    #     else:
+    #         resize = max(fH / H, fW / W)
+    #         resize_dims = (int(W * resize), int(H * resize))
+    #         newW, newH = resize_dims
+    #         crop_h = int(
+    #             (1 - np.mean(tuple(self.ida_aug_conf['bot_pct_lim']))) * newH) - fH
+    #         crop_w = int(max(0, newW - fW) / 2)
+    #         crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
+    #         flip = False
+    #         rotate_ida = 0
+    #     return resize, resize_dims, crop, flip, rotate_ida
 
     def get_cameras(self, sample: Sample, h, w, top_crop):
 
