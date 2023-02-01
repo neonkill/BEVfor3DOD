@@ -236,6 +236,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
            
             image_new = mmcv.imnormalize(np.array(image_new), self.img_mean,
                                        self.img_std, self.to_rgb)
+            image_new = torch.from_numpy(image_new).permute(2, 0, 1)
 
             # depth 
             point_depth = self.get_lidar_depth(lidar_points, 
@@ -358,13 +359,14 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         gt_labels = torch.tensor(np.array(batch.gt_labels))
 
         #! BD
-        rotate_bda, scale_bda, flip_dx, flip_dy = self.sample_bda_augmentation()
-        bda_mat = torch.zeros(4, 4)
-        bda_mat[3, 3] = 1
-        gt_boxes, bda_rot = self.bev_transform(gt_boxes, rotate_bda, scale_bda,
-                                          flip_dx, flip_dy)
+        # rotate_bda, scale_bda, flip_dx, flip_dy = self.sample_bda_augmentation()
+        # bda_mat = torch.zeros(4, 4)
+        # bda_mat[3, 3] = 1
+        # gt_boxes, bda_rot = self.bev_transform(gt_boxes, rotate_bda, scale_bda,
+        #                                   flip_dx, flip_dy)
 
-        bda_mat[:3, :3] = bda_rot
+        # bda_mat[:3, :3] = bda_rot
+        bda_mat = torch.eye(4,4)
         return {'gt_boxes': gt_boxes, 'gt_labels': gt_labels, 'bda_mat':bda_mat}
 
         

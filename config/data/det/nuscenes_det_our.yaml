@@ -11,10 +11,10 @@ label_indices: [[0,1]]   #! ? ? ? ?
 cameras: [[0, 1, 2, 3, 4, 5]] #! ? ? ? ? 
 # label parameters
 bev: #! ? ? ? ?? 
-  h: 200
-  w: 200
-  h_meters: 100.0
-  w_meters: 100.0
+  h: 128
+  w: 128
+  h_meters: 102.4
+  w_meters: 102.4
   offset: 0.0
 
 # input parameters (not used in label generation)

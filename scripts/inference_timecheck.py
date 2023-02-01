@@ -23,13 +23,32 @@ def main(cfg):
     model.to(device)
 
     # h = cfg.data
-    image = torch.randn(1, 6, 3, cfg.data.image.h, cfg.data.image.w, dtype=torch.float).to(device)
+    # image = torch.randn(1, 6, 3, cfg.data.image.h, cfg.data.image.w, dtype=torch.float).to(device)
+    # I = torch.randn((1, 6, 3, 3), dtype=torch.float).to(device)
+    # E = torch.randn((1, 6, 4, 4), dtype=torch.float).to(device)
+
+    # dummy_input = {'image': image,
+    #                 'intrinsics': I,
+    #                 'extrinsics': E}
+
+    image = torch.randn(1, 6, 3, cfg.data.image.h, cfg.data.image.w,dtype=torch.float).to(device)
+    depth = torch.randn(1, 6, cfg.data.image.h, cfg.data.image.w, dtype=torch.float).to(device)
     I = torch.randn((1, 6, 3, 3), dtype=torch.float).to(device)
     E = torch.randn((1, 6, 4, 4), dtype=torch.float).to(device)
+    sensor2sensor_mats = torch.randn((1, 6, 4, 4), dtype=torch.float).to(device)
+    sensor2ego_mats = torch.randn((1, 6, 4, 4), dtype=torch.float).to(device)
+    ida_mats = torch.randn((1, 6, 4, 4), dtype=torch.float).to(device)
+    bda_mats = torch.randn((1, 4, 4), dtype=torch.float).to(device)
 
-    dummy_input = {'image': image,
+    dummy_input = {'image' : image,
+                   'depths' : depth,
+                    'sensor2ego_mats': sensor2ego_mats,
                     'intrinsics': I,
-                    'extrinsics': E}
+                    'extrinsics': E,
+                    'ida_mats': ida_mats,
+                    'sensor2sensor_mats': sensor2sensor_mats,
+                    'bda_mats': bda_mats
+                    }
 
 
     # INIT LOGGERS
