@@ -1,14 +1,15 @@
 
 defaults:
   - _self_
-  - model: default_model
-  - data: debug/original_nuscenes_debug
-  - loss: default_loss
-  - metrics: default_metrics
+  # - model: default_model
+  # - data: nuscenes_det
+  - data: det/nuscenes_det_our
+  # - loss: default_loss
+  # - metrics: default_metrics
 
 
 experiment:
-  project: CV_For_Autonomous_Driving
+  project: 3D_OD_For_Autonomous_Driving 
   name: base
   uuid: ${now:%m%d_%H%M%S}
   save_dir: /usr/src/CV_For_Autonomous_Driving/logs/              # log directory, will be created
@@ -20,10 +21,10 @@ experiment:
 
 
 loader:
-  batch_size: 8         # per gpu
-  num_workers: 4
+  batch_size: 4         # per gpu
+  num_workers: 8
   pin_memory: True
-  prefetch_factor: 4
+  prefetch_factor: 8
 
 
 # AdamW

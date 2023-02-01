@@ -127,3 +127,14 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+BEVDepth/
+epoch=12-step=11427.ckpt
+epoch=9-step=8790.ckpt
+logs/
+mmdetection3d/
+outputs/
+setup.py
+config/default_config_debug.yaml
+config/data/debug/original_nuscenes_debug.yaml
+data_module/backup/transforms _topcrop_bev.py

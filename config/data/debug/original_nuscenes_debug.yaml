@@ -1,13 +1,13 @@
 
 
 
-dataset: 'nuscenes_generated'           # do not modify :)
+dataset: 'nusc_det_dataset'           # do not modify :)
 num_classes: 12                         # do not modify :)
 
 # used to get_split
 version: 'v1.0-trainval'                # 'v1.0-mini' for debugging
-dataset_dir: '/ws/nuscenes'
-labels_dir: '/ws/nuscenes/cvt_labels_nuscenes_v2'
+dataset_dir: '/usr/src/nuscenes'
+labels_dir: '/usr/src/nuscenes/cvt_labels_nuscenes_v2'
 # dataset_dir: '/usr/src/nuscenes'
 # labels_dir: '/usr/src/cvt_labels_nuscenes_v2'
 
