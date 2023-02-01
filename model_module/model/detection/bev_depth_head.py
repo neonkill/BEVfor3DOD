@@ -201,8 +201,8 @@ class BEVDepthHead(CenterHead):
         voxel_size = torch.tensor(self.train_cfg['voxel_size'])
 
         #! [256, 256]
-        feature_map_size = torch.div(grid_size[:2], self.train_cfg['out_size_factor'], rounding_mode='floor')
-        # feature_map_size = grid_size[:2] // self.train_cfg['out_size_factor']
+        # feature_map_size = torch.div(grid_size[:2], self.train_cfg['out_size_factor'], rounding_mode='floor')
+        feature_map_size = grid_size[:2] // self.train_cfg['out_size_factor']
 
         # reorganize the gt_dict by tasks
         task_masks = []

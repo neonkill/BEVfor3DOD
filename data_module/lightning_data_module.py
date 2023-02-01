@@ -38,7 +38,7 @@ class DataModule(pl.LightningDataModule):
     def train_dataloader(self, shuffle=True):
         return self.get_split('train', shuffle=shuffle)
 
-    def val_dataloader(self, shuffle=True):
+    def val_dataloader(self, shuffle=False):
         return self.get_split('val', shuffle=shuffle)
 
     def test_dataloader(self, shuffle=False):

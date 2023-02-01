@@ -32,8 +32,8 @@ class BaseBEVDepth(nn.Module):
         super(BaseBEVDepth, self).__init__()
         self.is_train_depth = is_train_depth 
         self.backbone = backbone
-        self.det_head = head
-        self.voxel_pooling = voxel_pooling
+        self.det_head = head #! 
+        self.voxel_pooling = voxel_pooling #! 
 
         self.reduce_dim = reduce_dim
         self.downsample_factor = downsample_factor 
@@ -41,7 +41,7 @@ class BaseBEVDepth(nn.Module):
         self.depth_channels = int(
             (self.dbound[1] - self.dbound[0]) / self.dbound[2])
 
-        self.depth_head = nn.Sequential(ConvNeXtBlock(self.reduce_dim, 0.0),     
+        self.depth_head = nn.Sequential(ConvNeXtBlock(self.reduce_dim, 0.0),    #!
                                     ConvNeXtBlock(self.reduce_dim, 0.0),
                                     nn.Conv2d(self.reduce_dim, self.depth_channels, kernel_size=1, stride=1, padding=0))
 
@@ -96,9 +96,10 @@ class BaseBEVDepth(nn.Module):
 
             seg_feats, depth_feats = self.backbone(imgs) # b*n , 64, 176, 64
             depth_bin = self.depth_head(depth_feats) # ([12, 112, 64, 176])
-            depth_bin = depth_bin.softmax(1)         # b*n , 112, 64, 176
+            depth_bin = depth_bin.softmax(1)         # b*n , 112, 64, 176             # depth_pred: ([12, 112, 64, 176])
+
             x, depth_pred = self.voxel_pooling(seg_feats.unsqueeze(1), depth_bin.unsqueeze(1), mats_dict = mats_dict, timestamps = timestamps, is_return_depth=self.is_train_depth)
-            # depth_pred: ([12, 112, 64, 176])
+            
             det_pred = self.det_head(x) 
 
             return det_pred, depth_pred
@@ -107,7 +108,7 @@ class BaseBEVDepth(nn.Module):
             seg_feats, depth_feats = self.backbone(imgs) # b*n , 64, 176, 64
             depth_bin = self.depth_head(depth_feats)
             depth_bin = depth_bin.softmax(1)             # b*n , 112, 64, 176
-            x  = self.voxel_pooling(seg_feats.unsqueeze(1), depth_bin.unsqueeze(1), mats_dict = mats_dict, timestamps = timestamps, is_return_depth=self.is_train_depth)
+            x  = self.voxel_pooling(seg_feats.unsqueeze(1), depth_bin.unsqueeze(1), mats_dict = mats_dict, timestamps = timestamps)
             det_pred = self.det_head(x)
 
             return det_pred

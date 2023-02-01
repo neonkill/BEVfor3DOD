@@ -255,7 +255,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         Note: we invert I and E here for convenience.
         """
         images = list()
-        images_before_crop = list() #!
+        # images_before_crop = list() #!
         intrinsics = list()
         sensor2sensor_mats = list()
         sensor2ego_mats = list()
@@ -263,7 +263,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         depths = list()
 
         lidar_path = sample.lidar_path
-        print('self.dataset_dir, lidar_path',self.dataset_dir, lidar_path)
+        # print('self.dataset_dir, lidar_path',self.dataset_dir, lidar_path)
         lidar_points = np.fromfile(os.path.join(self.dataset_dir, lidar_path),
                                     dtype=np.float32,count=-1).reshape(-1, 5)[..., :4]
 
@@ -275,19 +275,11 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
         # resize: [0.44, 0.344] / resize_dim[704, 310] / crop [0, 54, 704, 310]
         for i, (image_path, I_original, sensor2ego_mat) in enumerate(zip(sample.images, sample.intrinsics, sample.sensor2ego_mats)):
 
-            # # RGB images
-            # h_resize = h + top_crop
-            # w_resize = w
 
             image = Image.open(self.dataset_dir / image_path)
 
-            # image_new = image.resize((w_resize, h_resize), resample=Image.BILINEAR)
-            images_before_crop.append(self.img_trans_vision(image))    #!
-            # image_new = image_new.crop((0, top_crop, image_new.width, image_new.height))
+            # images_before_crop.append(self.img_trans_vision(image))    #!
 
-            # resize = [w_resize/1600, h_resize/900]
-            # crop = [0, top_crop, image_new.width, image_new.height]
-            # ida_mat = self.get_img_transform(resize, crop)
             resize, resize_dims, crop, flip, rotate_ida = self.sample_ida_augmentation()
             #! image aug
             image_new, ida_mat = self.img_transform(img=image, resize=resize, resize_dims=resize_dims,\

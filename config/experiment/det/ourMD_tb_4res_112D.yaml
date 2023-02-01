@@ -28,7 +28,7 @@ scheduler:
 trainer:
   max_epochs: 24
   gpus: 4
-  num_sanity_val_steps: 0
+  num_sanity_val_steps: -1
   val_check_interval: 1.0
   check_val_every_n_epoch: 1
   # self.eval_interval = eval_interval #! 

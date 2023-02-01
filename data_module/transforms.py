@@ -143,6 +143,12 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
                         'scale_lim': [0.95, 1.05],
                         'flip_dx_ratio': 0.5,
                         'flip_dy_ratio': 0.5 } 
+        self.img_conf = dict(img_mean=[123.675, 116.28, 103.53],
+                        img_std=[58.395, 57.12, 57.375],
+                        to_rgb=True)
+        self.img_mean = np.array(self.img_conf['img_mean'], np.float32)
+        self.img_std = np.array(self.img_conf['img_std'], np.float32)
+        self.to_rgb = self.img_conf['to_rgb']
 
     def get_sensor2sensor_mat(self):
         sensor2sensor_mat = np.full((4, 4), 1e-9, dtype=np.float32)
@@ -228,6 +234,8 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
             crop = [0, top_crop, image_new.width, image_new.height]
             ida_mat = self.get_img_transform(resize, crop)
            
+            image_new = mmcv.imnormalize(np.array(image_new), self.img_mean,
+                                       self.img_std, self.to_rgb)
 
             # depth 
             point_depth = self.get_lidar_depth(lidar_points, 
@@ -248,7 +256,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
 
             sensor2ego_mat = np.float32(sensor2ego_mat)
 
-            images.append(self.img_trans_vision(image_new))
+            images.append(image_new)
             intrinsics.append(torch.tensor(I))
             sensor2ego_mats.append(torch.tensor(sensor2ego_mat))
             sensor2sensor_mats.append(torch.tensor(self.get_sensor2sensor_mat()))
