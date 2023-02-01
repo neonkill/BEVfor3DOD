@@ -10,7 +10,7 @@ experiment:
   # uuid: ''
 
 loader:
-  batch_size: 2       # mini batch size per 1 GPU
+  batch_size: 1       # mini batch size per 1 GPU
   num_workers: 8
   prefetch_factor: 8
   # sampler: None

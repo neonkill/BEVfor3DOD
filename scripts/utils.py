@@ -12,7 +12,7 @@ from omegaconf import OmegaConf, DictConfig,SCMode
 from torchmetrics import MetricCollection
 from pathlib import Path
 import copy
-from model_module.losses import MultipleLoss
+# from model_module.losses import MultipleLoss
 from model_module.lightining_model_module import ModelModule
 from data_module.lightning_data_module import DataModule
 

@@ -344,6 +344,7 @@ class BEVDepthHead(CenterHead):
         Returns:
             dict[str:torch.Tensor]: Loss of heatmap and bbox of each task.
         """
+        
         heatmaps, anno_boxes, inds, masks = targets
         return_loss = 0
         for task_id, preds_dict in enumerate(preds_dicts):
@@ -378,13 +379,16 @@ class BEVDepthHead(CenterHead):
             pred = pred.view(pred.size(0), -1, pred.size(3))
             pred = self._gather_feat(pred, ind)
             mask = masks[task_id].unsqueeze(2).expand_as(target_box).float()
-            target_box = num.clone().detach()
-            num = torch.clamp(reduce_mean(target_box),
+            num = torch.clamp(reduce_mean(target_box.new_tensor(num)),
                               min=1e-4).item()
+            # target_box = num.clone().detach()
+            # num = torch.clamp(reduce_mean(target_box),
+            #                   min=1e-4).item()
             isnotnan = (~torch.isnan(target_box)).float()
             mask *= isnotnan
             code_weights = self.train_cfg['code_weights']
             bbox_weights = mask * mask.new_tensor(code_weights)
+            # print(pred.shape, target_box.shape)
             loss_bbox = self.loss_bbox(pred,
                                        target_box,
                                        bbox_weights,
