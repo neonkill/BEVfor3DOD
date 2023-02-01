@@ -105,14 +105,70 @@ class ModelModule(pl.LightningModule):
     def test_epoch_end(self, test_step_outputs):
         self.get_metrics(test_step_outputs, len(self.trainer.test_dataloaders[0].dataset))
 
-    def configure_optimizers(self):
-        # lr = self.basic_lr_per_img * \
-        #     self.batch_size_per_device * self.gpus
-        optimizer = torch.optim.AdamW(self.fullmodel.parameters(),
-                                      lr=self.optimizer_args.lr,
-                                      weight_decay=self.optimizer_args.weight_decay)
-        scheduler = MultiStepLR(optimizer, self.scheduler_args.bound)
-        return [[optimizer], [scheduler]]
+    def configure_optimizers(self, disable_scheduler=False):
+
+        # Define optimizer
+        if self.optimizer_args.dual_lr:
+            bb_param, depth_param, nbb_param = [], [], []
+            bb_keys, depth_keys, nbb_keys = set(), set(), set()
+
+            for k, param in dict(self.fullmodel.named_parameters()).items():
+                if any(part in k for part in self.optimizer_args.bb_keywords):
+                    bb_param.append(param)
+                    bb_keys.add(k)
+                elif any(part in k for part in self.optimizer_args.depth_keywords):
+                    depth_param.append(param)
+                    depth_keys.add(k)
+                else:
+                    nbb_param.append(param)
+                    nbb_keys.add(k)
+        
+            print('----------------------')
+            print(bb_keys)
+            print('----------------------')
+            print(depth_keys)
+            print('----------------------')
+            print(nbb_keys)
+
+            opt = torch.optim.AdamW(bb_param, 
+                                        lr = self.optimizer_args.lr, 
+                                        weight_decay = self.optimizer_args.weight_decay)
+            
+            opt.add_param_group({'params': nbb_param, 
+                                'lr': self.optimizer_args.lr*self.optimizer_args.bb_mult})
+
+            if len(depth_param) != 0:
+                opt.add_param_group({'params': depth_param, 
+                                'lr': self.optimizer_args.depth_lr})
+            
+
+        else:
+            opt = torch.optim.AdamW(self.fullmodel.parameters(), 
+                                        lr = self.optimizer_args.lr, 
+                                        weight_decay = self.optimizer_args.weight_decay)
+
+
+        # Define LR scheduler
+        if self.scheduler_args.name == 'onecycle':
+            if self.optimizer_args.dual_lr:
+                if len(depth_keys)==0:
+                    lr = [self.optimizer_args.lr, self.optimizer_args.lr*self.optimizer_args.bb_mult]
+                else:
+                    lr = [self.optimizer_args.lr, self.optimizer_args.lr*self.optimizer_args.bb_mult, self.optimizer_args.depth_lr]
+            else:
+                lr = self.optimizer_args.lr
+
+            sch = torch.optim.lr_scheduler.OneCycleLR(opt, 
+                                            max_lr=lr,
+                                            total_steps=self.scheduler_args.total_steps,
+                                            pct_start=self.scheduler_args.pct_start,
+                                            div_factor=self.scheduler_args.div_factor,
+                                            cycle_momentum=self.scheduler_args.cycle_momentum,
+                                            final_div_factor=self.scheduler_args.final_div_factor)
+
+            return [opt], [{'scheduler': sch, 'interval': 'step'}]
+        else:
+            AssertionError('scheduler is not defined!')
              
 
     def eval_step(self, batch, batch_idx):

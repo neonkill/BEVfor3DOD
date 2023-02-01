@@ -236,6 +236,7 @@ class LoadDataTransform(torchvision.transforms.ToTensor):
            
             image_new = mmcv.imnormalize(np.array(image_new), self.img_mean,
                                        self.img_std, self.to_rgb)
+            image_new = torch.from_numpy(image_new).permute(2, 0, 1)
 
             # depth 
             point_depth = self.get_lidar_depth(lidar_points, 

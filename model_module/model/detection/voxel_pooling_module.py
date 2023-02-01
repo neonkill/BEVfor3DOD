@@ -60,32 +60,32 @@ class VoxelModule(nn.Module):
             torch.LongTensor([(row[1] - row[0]) / row[2]
                               for row in [x_bound, y_bound, z_bound]]))
 
-        self.register_buffer('frustum', self.create_frustum())
-        self.depth_channels, _, _, _ = self.frustum.shape
+        # self.register_buffer('frustum', self.create_frustum())
+        # self.depth_channels, _, _, _ = self.frustum.shape
     
-        self.depth_channels = int(
-            (self.d_bound[1] - self.d_bound[0]) / self.d_bound[2])
+        # self.depth_channels = int(
+        #     (self.d_bound[1] - self.d_bound[0]) / self.d_bound[2])
 
 
 
-    def create_frustum(self):
+    def create_frustum(self, gt_depth):
         """Generate frustum"""
         # make grid in image plane
         ogfH, ogfW = self.final_dim
         fH, fW = ogfH // self.downsample_factor, ogfW // self.downsample_factor
         
-        d_coords = torch.arange(*self.d_bound,
-                                dtype=torch.float).view(-1, 1,
-                                                        1).expand(-1, fH, fW)
-        D, _, _ = d_coords.shape
-        x_coords = torch.linspace(0, ogfW - 1, fW, dtype=torch.float).view(
-            1, 1, fW).expand(D, fH, fW)
-        y_coords = torch.linspace(0, ogfH - 1, fH,
-                                  dtype=torch.float).view(1, fH,
-                                                          1).expand(D, fH, fW)
-        paddings = torch.ones_like(d_coords)
-        frustum = torch.stack((x_coords, y_coords, d_coords, paddings), -1)
+        batch_size, num_cams, D, h, w = gt_depth.shape
         
+        d_coords = gt_depth
+        x_coords = torch.linspace(0, ogfW - 1, fW, dtype=torch.float).view(
+            1, 1, fW).expand(batch_size, 6, D, fH, fW).cuda()
+        y_coords = torch.linspace(0, ogfH - 1, fH,
+                                    dtype=torch.float).view(1, fH,
+                                                            1).expand(batch_size,6,D, fH, fW).cuda()
+        
+        paddings = torch.ones_like(d_coords).cuda()
+        frustum = torch.stack((x_coords, y_coords, d_coords, paddings), -1)
+
         return frustum
     
 
@@ -93,7 +93,7 @@ class VoxelModule(nn.Module):
         
         
 
-    def get_geometry(self, sensor2ego_mat, intrin_mat, ida_mat, bda_mat):
+    def get_geometry(self, sensor2ego_mat, intrin_mat, ida_mat, bda_mat, gt_depth):
         """Transfer points from camera coord to ego coord.
 
         Args:
@@ -112,7 +112,7 @@ class VoxelModule(nn.Module):
         # undo post-transformation
         # B x N x D x H x W x 3
 
-        points = self.frustum
+        points = self.create_frustum(gt_depth)
         
         
         ida_mat = ida_mat.view(batch_size, num_cams, 1, 1, 1, 4, 4)
@@ -163,11 +163,11 @@ class VoxelModule(nn.Module):
         Returns:
             Tensor: BEV feature map.
         """
-        batch_size_num_cam, num_sweeps, num_channels, img_height, \
+        batch_size_num_cam, num_channels, img_height, \
             img_width = seg.shape
 
-
-        img_feat_with_depth = depth * seg[:, sweep_index, ...].unsqueeze(2) # b*n , 64, 112, 64, 176
+        # (b n) 64 64 176 -> (b n) 64 16 64 176 
+        img_feat_with_depth = seg.unsqueeze(2).repeat(1, 1, 16, 1, 1) #! (b n) 64 16 64 176 
 
         img_feat_with_depth = img_feat_with_depth.reshape(
             mats_dict['sensor2ego_mats'].shape[0],
@@ -182,7 +182,8 @@ class VoxelModule(nn.Module):
             mats_dict['sensor2ego_mats'][:, sweep_index, ...],
             mats_dict['intrin_mats'][:, sweep_index, ...],
             mats_dict['ida_mats'][:, sweep_index, ...],
-            mats_dict.get('bda_mat', None)
+            mats_dict.get('bda_mat', None),
+            depth
         )
         img_feat_with_depth = img_feat_with_depth.permute(0, 1, 3, 4, 5, 2)
         geom_xyz = ((geom_xyz - (self.voxel_coord - self.voxel_size / 2.0)) /
@@ -224,17 +225,18 @@ class VoxelModule(nn.Module):
         Return:
             Tensor: bev feature map.
         """
-        batch_size_num_cam, num_sweeps, num_channels, img_height, \
+        num_sweeps = 1
+        batch_size_num_cam, num_channels, img_height, \
             img_width = seg.shape
 
-        
-
+    
         key_frame_res = self._forward_single_sweep(
             0,
-            seg[:, 0:1, ...],
-            depth[:, 0:1, ...],
+            seg,
+            depth,
             mats_dict,
             is_return_depth=is_return_depth)
+        
         if num_sweeps == 1:
             return key_frame_res
 

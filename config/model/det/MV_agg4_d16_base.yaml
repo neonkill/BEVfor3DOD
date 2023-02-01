@@ -6,6 +6,7 @@ reduce_dim: 64
 downsample_factor: 4
 dbound: [2.0, 58.0, 0.5]
 is_train_depth: True
+aug_conf: ${data.image}
 
 backbone:
   _target_: model_module.model.detection.backbone.agg4_4toGAP_ConvNext_depth.Backbone
@@ -25,23 +26,49 @@ voxel_pooling:
   downsample_factor : ${model.downsample_factor}
   
 
+matching:
+  _target_: model_module.model.detection.matching_fulldepth.Matching
+
+  bev_embedding: 
+    bev_height: ${data.bev.h}
+    bev_width: ${data.bev.w}
+    h_meters: ${data.bev.h_meters}
+    w_meters: ${data.bev.w_meters}
+    offset: ${data.bev.offset}
+    resolution: 8         
+    # generated bev feature's resolution. 
+    # If you want to get 25x25 from cross_attn, resolution must be set 8
+
+  b_res: 4               # kv's resolution. 
+  image_height: ${data.image.h}
+  image_width: ${data.image.w}
+  dim: ${model.reduce_dim}
+  heads: 4
+  norm : 'LN'
+  cross_attn:
+    _target_: model_module.model.detection.matching_fulldepth.CrossAttention
+
+    dim: ${model.reduce_dim}
+    heads: ${model.matching.heads}
+    qkv_bias: True
+
 
 head:
   _target_: model_module.model.detection.bev_depth_head.BEVDepthHead
 
   bev_backbone_conf : 
     type : 'ResNet'
-    in_channels : ${model.reduce_dim}  #!
+    in_channels : 80  #!
     depth : 18
     num_stages : 3
     strides : [1, 2, 2]
     dilations : [1, 1, 1]
     out_indices : [0, 1, 2]
     norm_eval : False
-    base_channels : 128
+    base_channels : 160
   bev_neck_conf :
     type : 'SECONDFPN'
-    in_channels : [64, 128, 256, 512]   #!
+    in_channels : [80, 160, 320, 640]   #!
     upsample_strides : [1, 2, 4, 8]
     out_channels : [64, 64, 64, 64]
   tasks : [{'num_class': 1, 'class_names': ['car']},
