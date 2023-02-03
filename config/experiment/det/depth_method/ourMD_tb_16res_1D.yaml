@@ -1,16 +1,16 @@
 # @package _global_
 defaults:
-  - override /model: det/ourmodel_4res_112D
+  - override /model: det/depth_method/ourmodel_16res_1D
   - override /data: det/nuscenes_det_our
   # - override /loss: center_loss
   # - override /metrics: visibility_metrics
 
 experiment:
-  name: ourMD_tb_4res_112D #! our model, dataset/ topcrop bevaug/ 1/4, 112D
+  name: ourMD_tb_16res_112D #! our model, dataset/ topcrop bevaug/ 1/4, 112D
   # uuid: ''
 
 loader:
-  batch_size: 1       # mini batch size per 1 GPU
+  batch_size: 4       # mini batch size per 1 GPU
   num_workers: 8
   prefetch_factor: 8
   # sampler: None
@@ -21,14 +21,14 @@ optimizer:
   weight_decay: 1e-7
 
 scheduler:
-  bound: [19, 23]
-  # name: onecycle
+  down_step: [19, 23]
+  name: MultiStep
 
 
 trainer:
   max_epochs: 24
   gpus: 4
-  num_sanity_val_steps: -1
+  num_sanity_val_steps: 0
   val_check_interval: 1.0
   check_val_every_n_epoch: 1
   # self.eval_interval = eval_interval #! 

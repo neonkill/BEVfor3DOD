@@ -1,3 +1,4 @@
+
 import torch
 from torch import nn
 from einops import rearrange
@@ -5,18 +6,20 @@ from model_module.model.detection.base_lss_fpn import BaseLSSFPN
 from model_module.model.detection.bev_depth_head import BEVDepthHead
 from torch.cuda.amp.autocast_mode import autocast
 import torch.nn.functional as F
-from .modules import ResBlock, LayerNorm, ConvNeXtBlock
+from .modules import ResBlock, LayerNorm, ConvNeXtBlock, ConvBlock
 # __all__ = ['BaseBEVDepth']
 
 
 '''
 FullModel
+
 - Our Depth Model(backbone + head) + voxel_pooling + BEVDepth Detection Head 
 '''
 
 
 class BaseBEVDepth(nn.Module):
     """Source code of `BEVDepth`, `https://arxiv.org/abs/2112.11790`.
+
     Args:
         backbone_conf (dict): Config of backbone.
         head_conf (dict): Config of head.
@@ -25,17 +28,22 @@ class BaseBEVDepth(nn.Module):
     """
 
     # TODO: Reduce grid_conf and data_aug_conf
-    def __init__(self, reduce_dim, downsample_factor, dbound, is_train_depth, backbone , voxel_pooling, head, depth_channels = 112):
+    def __init__(self, reduce_dim, downsample_factor, dbound, is_train_depth, aug_conf, backbone, matching,  voxel_pooling, head):
         super(BaseBEVDepth, self).__init__()
         self.is_train_depth = is_train_depth 
         self.backbone = backbone
+        self.matching = matching
         self.det_head = head #! 
         self.voxel_pooling = voxel_pooling #! 
+        self.unfold = nn.Unfold(kernel_size=2, padding=0, stride=2)
+        self.combine = ConvBlock(reduce_dim*2, 80, kernel_size=1, norm='LN', act='GELU')
 
+        self.aug_conf = aug_conf
         self.reduce_dim = reduce_dim
         self.downsample_factor = downsample_factor 
         self.dbound = dbound 
-        self.depth_channels = depth_channels
+        self.depth_channels = int(
+            (self.dbound[1] - self.dbound[0]) / self.dbound[2])
 
         self.depth_head = nn.Sequential(ConvNeXtBlock(self.reduce_dim, 0.0),    #!
                                     ConvNeXtBlock(self.reduce_dim, 0.0),
@@ -50,6 +58,7 @@ class BaseBEVDepth(nn.Module):
         timestamps=None,
     ):
         """Forward function for BEVDepth
+
         Args:
             x (Tensor): Input ferature map.
             mats_dict(dict):
@@ -67,6 +76,7 @@ class BaseBEVDepth(nn.Module):
                     of (B, 4, 4).
             timestamps (long): Timestamp.
                 Default: None.
+
         Returns:
             tuple(list[dict]): Output results for tasks.
         """
@@ -84,37 +94,82 @@ class BaseBEVDepth(nn.Module):
                     'bda_mat': batch['bda_mats'].cuda()
                     }
 
+        
+        imgs = rearrange(x, 'b n ... -> (b n) ...')     # (B N) 3 256 704
+        _, _, h, w = imgs.shape
+
+
+        #! extract 1/4 agg feats
+        seg_feats, depth_feats = self.backbone(imgs)    # (B N) 64 64 176 
+        depth_bin = self.depth_head(depth_feats)        # (B N) 112 64 176
+        depth_bin = depth_bin.softmax(1)                # (B N) 112 64 176
+
+
+        #! depth 1/4 -> full -> 1/4
+        bin_to_depth = F.interpolate(depth_bin.clone().detach(), (h, w), mode='bilinear')   # (B N) 112 64 176
+        # 112 bin -> value
+        bin_to_depth = torch.argmax(bin_to_depth, dim=1, keepdim=True) * 0.5 + 2            # (B N) 1 64 176
+        bin_to_depth = self.unfold(bin_to_depth).view(b, n, 16, h//4, w//4)                 # B N 16 64 176
+
+
+        #! matching
+        I = self.intrinsic_augmentation(batch['intrinsics'])
+        E = batch['extrinsics']
+        m_feat = self.matching(seg_feats, I, E)  # b 64 128 128
+
+
+        #! voxel pooling                                    # b 64 128 128
+        v_feat = self.voxel_pooling(seg_feats, 
+                                    bin_to_depth, 
+                                    mats_dict = mats_dict, 
+                                    timestamps = timestamps)
+        
+
+        #! combine
+        combined_feat = self.combine(torch.cat([m_feat, v_feat], dim=1))        # b 80 128 128
+
+
+        #! detection head
+        det_pred = self.det_head(combined_feat)
+
         if self.is_train_depth and self.training: 
-            imgs = rearrange(x, 'b n ... -> (b n) ...') # ([12, 3, 256, 704]) 
-
-
-            seg_feats, depth_feats = self.backbone(imgs) # b*n , 64, 176, 64
-            depth_bin = self.depth_head(depth_feats) # ([12, 112, 64, 176])
-            depth_bin = depth_bin.softmax(1)         # b*n , 112, 64, 176             # depth_pred: ([12, 112, 64, 176])
-
-            x, depth_pred = self.voxel_pooling(seg_feats.unsqueeze(1), depth_bin.unsqueeze(1), mats_dict = mats_dict, timestamps = timestamps, is_return_depth=self.is_train_depth)
-            
-            det_pred = self.det_head(x) 
-
-            return det_pred, depth_pred
-        else:
-            imgs = rearrange(x, 'b n ... -> (b n) ...')
-            seg_feats, depth_feats = self.backbone(imgs) # b*n , 64, 176, 64
-            depth_bin = self.depth_head(depth_feats)
-            depth_bin = depth_bin.softmax(1)             # b*n , 112, 64, 176
-            x  = self.voxel_pooling(seg_feats.unsqueeze(1), depth_bin.unsqueeze(1), mats_dict = mats_dict, timestamps = timestamps)
-            det_pred = self.det_head(x)
-
             return det_pred, depth_bin
+        else:
+            return det_pred
+
+        # else:
+        #     imgs = rearrange(x, 'b n ... -> (b n) ...')
+        #     seg_feats, depth_feats = self.backbone(imgs) # b*n , 64, 176, 64
+        #     depth_bin = self.depth_head(depth_feats)
+        #     depth_bin = depth_bin.softmax(1)             # b*n , 112, 64, 176
+        #     x  = self.voxel_pooling(seg_feats.unsqueeze(1), depth_bin.unsqueeze(1), mats_dict = mats_dict, timestamps = timestamps)
+        #     det_pred = self.det_head(x)
+
+        #     return det_pred
+
+
+    def intrinsic_augmentation(self, I):
+        # I = B N 3 3
+        # w, h 704 256 // top_crop 54 
+        I[:,:,0,0] *= self.aug_conf.w / 1600
+        I[:,:,0,2] *= self.aug_conf.w / 1600
+        I[:,:,1,1] *= self.aug_conf.h / 900
+        I[:,:,1,2] *= self.aug_conf.h / 900
+        I[:,:,1,2] -= self.aug_conf.top_crop
+
+        return I
 
     def get_targets(self, gt_boxes, gt_labels):
         """Generate training targets for a single sample.
+
         Args:
             gt_bboxes_3d (:obj:`LiDARInstance3DBoxes`): Ground truth gt boxes.
             gt_labels_3d (torch.Tensor): Labels of boxes.
+
         Returns:
             tuple[list[torch.Tensor]]: Tuple of target including \
                 the following results in order.
+
                 - list[torch.Tensor]: Heatmap scores.
                 - list[torch.Tensor]: Ground truth boxes.
                 - list[torch.Tensor]: Indexes indicating the position \
@@ -126,11 +181,13 @@ class BaseBEVDepth(nn.Module):
 
     def loss(self, targets, preds_dicts):
         """Loss function for BEVDepth.
+
         Args:
             gt_bboxes_3d (list[:obj:`LiDARInstance3DBoxes`]): Ground
                 truth gt boxes.
             gt_labels_3d (list[torch.Tensor]): Labels of boxes.
             preds_dicts (dict): Output of forward function.
+
         Returns:
             dict[str:torch.Tensor]: Loss of heatmap and bbox of each task.
         """
@@ -150,7 +207,7 @@ class BaseBEVDepth(nn.Module):
                 reduction='none',
             ).sum() / max(1.0, fg_mask.sum()))
 
-        return depth_loss
+        return 3.0 * depth_loss
 
 
 
@@ -207,9 +264,11 @@ class BaseBEVDepth(nn.Module):
 
     def get_bboxes(self, preds_dicts, img_metas=None, img=None, rescale=False):
         """Generate bboxes from bbox head predictions.
+
         Args:
             preds_dicts (tuple[list[dict]]): Prediction results.
             img_metas (list[dict]): Point cloud and image's meta info.
+
         Returns:
             list[dict]: Decoded bbox, scores and labels after nms.
         """

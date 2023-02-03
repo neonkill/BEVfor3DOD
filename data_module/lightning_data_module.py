@@ -62,10 +62,10 @@ def collate_fn(batchs):
 
 
     for batch in batchs:
-        bevs.append(batch['bev'])
-        views.append(batch['view'])
-        centers.append(batch['center'])
-        visibilitys.append(batch['visibility'])
+        # bevs.append(batch['bev'])
+        # views.append(batch['view'])
+        # centers.append(batch['center'])
+        # visibilitys.append(batch['visibility'])
         depths.append(batch['depths'])
         cam_idxs.append(batch['cam_idx'])
         images.append(batch['image'])
@@ -81,10 +81,10 @@ def collate_fn(batchs):
         bda_mats.append(batch['bda_mat']) 
 
     results = {}
-    results['bev'] = torch.stack(bevs, dim=0)
-    results['view'] = torch.stack(views, dim=0)
-    results['center'] = torch.stack(centers, dim=0)
-    results['visibility'] = torch.stack(visibilitys, dim=0)
+    # results['bev'] = torch.stack(bevs, dim=0)
+    # results['view'] = torch.stack(views, dim=0)
+    # results['center'] = torch.stack(centers, dim=0)
+    # results['visibility'] = torch.stack(visibilitys, dim=0)
     results['depths'] = torch.stack(depths, dim=0)
     results['cam_idx'] = torch.stack(cam_idxs, dim=0)
     results['image'] = torch.stack(images, dim=0)

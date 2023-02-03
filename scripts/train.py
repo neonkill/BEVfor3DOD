@@ -6,8 +6,8 @@ from torchinfo import summary
 import pytorch_lightning as pl
 import hydra
 
-from pytorch_lightning.plugins import DDPPlugin
-# from pytorch_lightning.strategies.ddp import DDPStrategy
+# from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.strategies.ddp import DDPStrategy
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
 from utils import setup_config, setup_experiment, load_backbone
@@ -68,14 +68,14 @@ def main(cfg):
 
     # Train
     # summary(model_module.backbone)
-    # trainer = pl.Trainer(logger=logger,
-    #                      callbacks=callbacks,
-    #                      strategy=DDPStrategy(find_unused_parameters=False),     #! find_unsued_parameters False -> True
-    #                      **cfg.trainer)
     trainer = pl.Trainer(logger=logger,
                          callbacks=callbacks,
-                         strategy=DDPPlugin(find_unused_parameters=False),     #! find_unsued_parameters False -> True
+                         strategy=DDPStrategy(find_unused_parameters=False),     #! find_unsued_parameters False -> True
                          **cfg.trainer)
+    # trainer = pl.Trainer(logger=logger,
+    #                      callbacks=callbacks,
+    #                      strategy=DDPPlugin(find_unused_parameters=False),     #! find_unsued_parameters False -> True
+    #                      **cfg.trainer)
     trainer.fit(model_module, datamodule=data_module, ckpt_path=ckpt_path)
     # trainer.fit(model_module)
 

@@ -20,6 +20,7 @@ from mmdet3d.core.bbox.structures.lidar_box3d import LiDARInstance3DBoxes
 
 from model_module.torch_dist import all_gather_object, get_rank, synchronize
 from model_module.det_evaluators import DetNuscEvaluator
+from model_module.metrics import DepthMetrics
 
  
 CLASSES = [
@@ -58,7 +59,7 @@ class ModelModule(pl.LightningModule):
         self.mode = 'valid'
         # self.loss_func = loss_func
         # self.metrics = metrics
-
+        self.depth_metrics = DepthMetrics()
         self.optimizer_args = optimizer_args
         self.scheduler_args = scheduler_args
 
@@ -87,11 +88,15 @@ class ModelModule(pl.LightningModule):
             depth_labels = depth_labels[:, 0, ...]
         depth_loss = self.fullmodel.depth_loss(depth_labels.cuda(), depth_preds)
 
+        self.depth_metrics.update(depth_preds, batch)
+        
         self.log('detection_loss', detection_loss)
         self.log('depth_loss', depth_loss)
 
         return detection_loss + depth_loss
 
+    def on_validation_start(self) -> None:
+        self._log_epoch_metrics('train')
 
     def validation_step(self, batch, batch_idx):
         return self.eval_step(batch, batch_idx)
@@ -100,11 +105,24 @@ class ModelModule(pl.LightningModule):
         return self.eval_step(batch, batch_idx)
 
     def validation_epoch_end(self, validation_step_outputs):
+        self._log_epoch_metrics('val')
         self.get_metrics(validation_step_outputs, len(self.trainer.val_dataloaders[0].dataset))
 
     def test_epoch_end(self, test_step_outputs):
         self.get_metrics(test_step_outputs, len(self.trainer.test_dataloaders[0].dataset))
 
+    def _log_epoch_metrics(self, prefix: str):
+        """
+        on_validation_start에서 train 할 때 저장된 metric logging 후 reset
+        val 하면서 metric update 하고 val 끝나면 metric logging 후 reset
+        """
+        depth_metrics = self.depth_metrics.compute()
+        for k, v in depth_metrics.items():
+            self.log(f'{prefix}/depth_metrics/bin/{k}', v, sync_dist=True)
+            
+        self.depth_metrics.reset()
+    
+    
     def configure_optimizers(self, disable_scheduler=False):
 
         # Define optimizer
@@ -166,14 +184,19 @@ class ModelModule(pl.LightningModule):
                                             cycle_momentum=self.scheduler_args.cycle_momentum,
                                             final_div_factor=self.scheduler_args.final_div_factor)
 
-            return [opt], [{'scheduler': sch, 'interval': 'step'}]
+        elif self.scheduler_args.name == 'MultiStep':
+            sch = MultiStepLR(opt, self.scheduler_args.down_step)
+            
         else:
             AssertionError('scheduler is not defined!')
-             
+            
+        return [opt], [{'scheduler': sch, 'interval': 'step'}]
 
     def eval_step(self, batch, batch_idx):
 
-        preds = self(batch)
+        preds, depth_preds = self(batch)
+        
+        self.depth_metrics.update(depth_preds, batch)
             
         for img_meta in batch['img_metas']:
             img_meta['box_type_3d'] = LiDARInstance3DBoxes

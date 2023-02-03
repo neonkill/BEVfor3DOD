@@ -1,0 +1,41 @@
+# @package _global_
+defaults:
+  - override /model: det/agg_resolution/ourmodel_16res_112D
+  - override /data: det/nuscenes_det_our
+  # - override /loss: center_loss
+  # - override /metrics: visibility_metrics
+
+experiment:
+  name: ourMD_tb_16res_112D_bb2e-3nbb2e-4d1e-4 #! our model, dataset/ topcrop bevaug/ 1/4, 112D
+  # uuid: ''
+
+loader:
+  batch_size: 4       # mini batch size per 1 GPU
+  num_workers: 8
+  prefetch_factor: 8
+  # sampler: None
+
+optimizer:
+  dual_lr: True
+  lr: 2e-3 
+  weight_decay: 1e-7
+  bb_keywords: ['pretrained_convnext', 'layer64', 'layergap', 'seg_layers', 'reduce_seg']
+  depth_keywords: ['depth_layers', 'reduce_depth', 'depth_head']
+  bb_mult: 0.1
+  depth_lr: 1e-4
+
+scheduler:
+  down_step: [19, 23]
+  name: MultiStep
+
+
+trainer:
+  max_epochs: 24
+  gpus: 4
+  num_sanity_val_steps: 0
+  val_check_interval: 1.0
+  check_val_every_n_epoch: 1
+  # self.eval_interval = eval_interval #! 
+  # self.batch_size_per_device = batch_size_per_device #!
+
+
