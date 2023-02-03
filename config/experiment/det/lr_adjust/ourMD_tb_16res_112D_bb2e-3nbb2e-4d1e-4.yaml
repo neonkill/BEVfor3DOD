@@ -28,6 +28,13 @@ scheduler:
   down_step: [19, 23]
   name: MultiStep
 
+# scheduler:
+#   name: onecycle
+#   div_factor: 10           # starts at lr / 10
+#   pct_start: 0.3           # reaches lr at 30% of total steps
+#   final_div_factor: 10     # ends at lr / 10 / 10
+#   total_steps: ${trainer.max_steps}
+#   cycle_momentum: False
 
 trainer:
   max_epochs: 24

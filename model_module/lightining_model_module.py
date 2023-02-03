@@ -183,14 +183,17 @@ class ModelModule(pl.LightningModule):
                                             div_factor=self.scheduler_args.div_factor,
                                             cycle_momentum=self.scheduler_args.cycle_momentum,
                                             final_div_factor=self.scheduler_args.final_div_factor)
+            return [opt], [{'scheduler': sch, 'interval': 'step'}]
 
         elif self.scheduler_args.name == 'MultiStep':
             sch = MultiStepLR(opt, self.scheduler_args.down_step)
+            return [opt], [{'scheduler': sch, 'interval': 'epoch'}]
+            
+            
             
         else:
             AssertionError('scheduler is not defined!')
             
-        return [opt], [{'scheduler': sch, 'interval': 'step'}]
 
     def eval_step(self, batch, batch_idx):
 
