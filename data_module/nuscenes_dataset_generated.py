@@ -6,6 +6,7 @@
 
 import json
 import torch
+import numpy as np
 
 from pathlib import Path
 from .common import get_split
@@ -27,15 +28,12 @@ def get_data(
     labels_dir = Path(labels_dir)
 
     # Override augment if not training
-    is_train = True if split=='train' else False
     augment = 'none' if split != 'train' else augment
-    transform = LoadDataTransform(dataset_dir, labels_dir, image, num_classes, augment, is_train)
+    transform = LoadDataTransform(dataset_dir, labels_dir, image, num_classes, augment, split)
 
     # Format the split name
     split = f'mini_{split}' if version == 'v1.0-mini' else split
     split_scenes = get_split(split, 'nuscenes')
-
-    
 
     return [NuScenesGeneratedDataset(s, labels_dir, transform=transform) for s in split_scenes]
 
@@ -59,5 +57,8 @@ class NuScenesGeneratedDataset(torch.utils.data.Dataset):
 
         if self.transform is not None:
             data = self.transform(data)
+            if data == None:
+                rand_idx = np.random.randint(0, len(self.samples))
+                data = self.__getitem__(rand_idx)
 
         return data

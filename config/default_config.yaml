@@ -3,14 +3,15 @@ defaults:
   - _self_
   - model: default_model
   - data: det/nuscenes_det
-  # - loss: default_loss
-  # - metrics: default_metrics
+  - loss: default_loss
+  - metrics: default_metrics
 
 
 experiment:
   project: 3D_OD_For_Autonomous_Driving
   name: base
   uuid: ${now:%m%d_%H%M%S}
+  
   save_dir: ${hydra:runtime.cwd}/logs/                # log directory, will be created
   
 

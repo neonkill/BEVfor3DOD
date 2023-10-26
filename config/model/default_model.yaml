@@ -2,6 +2,19 @@
 
 _target_: model_module.model.fullmodel.FullModel
 
+voxel_pooling:
+  # _target_: model_module.model.detection.voxel_pooling_module_16D.VoxelModule
+
+  x_bound: [-51.2, 51.2, 0.8]
+  y_bound: [-51.2, 51.2, 0.8]
+  z_bound: [-5, 3, 8]
+  d_bound: [2, 58, 0.5]
+  final_dim: [256, 704]
+  output_channels: 64
+  downsample_factor : 4
+
+
+
 
 backbone:
   _target_: model_module.model.backbones.aggregator.Agg16Agg4

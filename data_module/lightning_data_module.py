@@ -11,6 +11,10 @@ from nuscenes.map_expansion.map_api import NuScenesMap
 from . import get_dataset_module_by_name
 
 
+# def get_split(split):
+#     path = Path(__file__).parent / 'splits' /  f'{split}.txt'
+#     return path.read_text().strip().split('\n')
+
 
 class DataModule(pl.LightningDataModule):
 
@@ -32,16 +36,17 @@ class DataModule(pl.LightningDataModule):
         if loader_config['num_workers'] == 0:
             loader_config['prefetch_factor'] = 2
 
+        #! return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
         return torch.utils.data.DataLoader(dataset, shuffle=shuffle, collate_fn=collate_fn, **loader_config)
 
 
     def train_dataloader(self, shuffle=True):
         return self.get_split('train', shuffle=shuffle)
 
-    def val_dataloader(self, shuffle=False):
+    def val_dataloader(self, shuffle=True):
         return self.get_split('val', shuffle=shuffle)
 
-    def test_dataloader(self, shuffle=False):
+    def eval_dataloader(self, shuffle=False):
         return self.get_split('eval', shuffle=shuffle)
 
 
@@ -53,19 +58,17 @@ def collate_fn(batchs):
     depths, cam_idxs, images = [], [], []
     intrinsics, extrinsics = [], []
     gt_boxes, gt_labels = [], []
-    sensor2sensor_mats = []
-    sensor2ego_mats = []
-    ida_mats = []
     img_metas = []
-    # images_before_crop = [] #!
-    bda_mats =[]
-
-
+    lidar_calibrated_sensors = []
+    # raw_images = []
+    seg_gt = []
     for batch in batchs:
-        # bevs.append(batch['bev'])
-        # views.append(batch['view'])
-        # centers.append(batch['center'])
-        # visibilitys.append(batch['visibility'])
+        # raw_images.append(batch['raw_image'])
+        bevs.append(batch['bev'])
+        views.append(batch['view'])
+        centers.append(batch['center'])
+        visibilitys.append(batch['visibility'])
+        seg_gt.append(batch['seg_gt'])
         depths.append(batch['depths'])
         cam_idxs.append(batch['cam_idx'])
         images.append(batch['image'])
@@ -73,32 +76,26 @@ def collate_fn(batchs):
         extrinsics.append(batch['extrinsics'])
         gt_boxes.append(batch['gt_boxes'])
         gt_labels.append(batch['gt_labels'])
-        sensor2sensor_mats.append(batch['sensor2sensor_mats'])
-        sensor2ego_mats.append(batch['sensor2ego_mats'])
-        ida_mats.append(batch['ida_mats'])
         img_metas.append(batch['img_metas'])
-        # images_before_crop.append(batch['images_before_crop'])#!
-        bda_mats.append(batch['bda_mat']) 
+        lidar_calibrated_sensors.append(batch['lidar_calibrated_sensors'])
 
     results = {}
-    # results['bev'] = torch.stack(bevs, dim=0)
-    # results['view'] = torch.stack(views, dim=0)
-    # results['center'] = torch.stack(centers, dim=0)
-    # results['visibility'] = torch.stack(visibilitys, dim=0)
+    # results['raw_image'] = torch.stack(raw_images, dim=0)
+    results['bev'] = torch.stack(bevs, dim=0)
+    results['view'] = torch.stack(views, dim=0)
+    results['center'] = torch.stack(centers, dim=0)
+    results['visibility'] = torch.stack(visibilitys, dim=0)
+    results['seg_gt'] = torch.stack(seg_gt, dim=0)
     results['depths'] = torch.stack(depths, dim=0)
     results['cam_idx'] = torch.stack(cam_idxs, dim=0)
     results['image'] = torch.stack(images, dim=0)
     results['intrinsics'] = torch.stack(intrinsics, dim=0)
     results['extrinsics'] = torch.stack(extrinsics, dim=0)
-    results['sensor2sensor_mats'] = torch.stack(sensor2sensor_mats, dim=0)
-    results['sensor2ego_mats'] = torch.stack(sensor2ego_mats, dim=0)
-    results['ida_mats'] = torch.stack(ida_mats, dim=0)
-    # results['images_before_crop'] = torch.stack(images_before_crop, dim=0)      #!
-    
+
     results['img_metas'] = img_metas
+    results['lidar_calibrated_sensors'] = lidar_calibrated_sensors
     results['gt_boxes'] = gt_boxes
     results['gt_labels'] = gt_labels
-    results['bda_mats'] = torch.stack(bda_mats, dim=0) 
 
     return results
 

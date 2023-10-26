@@ -1,0 +1,48 @@
+
+_target_: model_module.model.segmentation.fullmodel_with_det_depth_seg_query.FullModel
+
+reduce_dim: 64
+outputs:
+  bev: [0, 1]
+norm : 'LN'
+
+backbone:
+  _target_: model_module.model.segmentation.backbones.agg8_4toGAP_ConvNext_depth.Backbone
+  seg_chs: [96, 192, 384, 768, 768, 768]
+  bev_chs: [96, 192, 384, 768, 768, 768]
+  reduce_dim: ${model.reduce_dim}
+
+q_generator:
+  _target_: model_module.model.segmentation.matching_detection.Matching
+
+  # bev_embedding: 
+  #   bev_height: ${data.bev.h}
+  #   bev_width: ${data.bev.w}
+  #   h_meters: ${data.bev.h_meters}
+  #   w_meters: ${data.bev.w_meters}
+  #   offset: ${data.bev.offset}
+  #   resolution: 4         
+    # generated bev feature's resolution. 
+    # If you want to get 25x25 from cross_attn, resolution must be set 8
+
+  b_res: 8               # kv's resolution. 
+  image_height: ${data.image.h}
+  image_width: ${data.image.w}
+  num_query: 150
+  dim: ${model.reduce_dim}
+  heads: 4
+  norm : 'LN'
+  cross_attn:
+    _target_: model_module.model.segmentation.matching_detection.CrossAttention
+
+    dim: ${model.reduce_dim}
+    heads: ${model.q_generator.heads}
+    qkv_bias: True
+
+det_head:
+  _target_: model_module.model.segmentation.detection_head.head_query.HEAD
+  num_class : 10
+  in_channels : 64
+  num_block : 2
+  num_decoder_layers : 5
+  pc_range : [-50.0, -50.0, -5.0, 50.0, 50.0, 3.0]

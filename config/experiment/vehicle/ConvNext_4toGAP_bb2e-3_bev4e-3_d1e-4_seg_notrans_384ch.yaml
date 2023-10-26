@@ -1,0 +1,53 @@
+# @package _global_
+defaults:
+  - override /model: segmentation/with_det/agg8_4toGAP_ConvNext_768to64_depth_notransformer_ch384
+  # - override /model: segmentation/agg4_4toGAP_ConvNext_768to64_depth
+  - override /data: original_nuscenes_half
+
+  - override /loss: depthloss_seg_det
+  # - override /loss: center_depthloss
+  - override /metrics: visibility_metrics
+
+
+experiment:
+  name: 5050matching_bbmulti2_aggsum_reduce256_bev384ch_bev3OD
+  # uuid: 0420_051950
+
+loader:
+  batch_size: 1       # mini batch size per 1 GPU
+  num_workers: 8
+  prefetch_factor: 8
+
+optimizer:
+  dual_lr: True
+  bb_keywords: ['pretrained_convnext', 'layer64', 'layergap']
+  
+  depth_keywords: ['depth_layers', 'reduce_depth', 'depth_pred']
+
+  seg_keywords: ['seg_layers', 'reduce_seg', 'seg_pred']
+
+  detection_keywords: ['det_head']
+
+  lr: 3e-4
+  bb_mult: 2
+  depth_lr: 2e-5
+  seg_lr: 2e-5
+  detection_lr: 3e-4
+
+scheduler:
+  name: onecycle
+  div_factor: 1           # starts at lr / 10
+  pct_start: 0.0           # reaches lr at 30% of total steps
+  final_div_factor: 3     # ends at lr / 10 / 10
+  total_steps: ${trainer.max_steps}
+  cycle_momentum: False
+
+trainer:
+  max_steps: 254000       # 63000 , 84000
+  gpus: 4
+  # num_sanity_val_steps: -1
+
+model:
+  outputs:
+    bev: [0, 1]
+    center: [1, 2]

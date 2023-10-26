@@ -1,7 +1,7 @@
 
 
 dataset: 'nuscenes_generated' 
-num_classes: 12    
+num_classes: 10    
 
 # used to get_split
 version: 'v1.0-trainval'                # 'v1.0-mini' for debugging
@@ -11,10 +11,10 @@ label_indices: [[0,1]]   #! ? ? ? ?
 cameras: [[0, 1, 2, 3, 4, 5]] #! ? ? ? ? 
 # label parameters
 bev: #! ? ? ? ?? 
-  h: 128
-  w: 128
-  h_meters: 102.4
-  w_meters: 102.4
+  h: 200
+  w: 200
+  h_meters: 100
+  w_meters: 100
   offset: 0.0
 
 # input parameters (not used in label generation)
@@ -34,10 +34,12 @@ img_conf:
 
 ida_aug_conf : { 'resize_lim': [0.386, 0.55],
     'final_dim':  [256, 704],
-    'rot_lim': [-5.4, 5.4],
+    'rot_lim': [-0, 0],
+    # 'rot_lim': [-5.4, 5.4],
     'H': 900,
     'W': 1600,
-    'rand_flip': True,
+    'rand_flip': False,
+    # 'rand_flip': True,
     'bot_pct_lim' : [0.0, 0.0],
     'cams': ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT',
         'CAM_BACK', 'CAM_BACK_RIGHT' ],

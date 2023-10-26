@@ -1,0 +1,56 @@
+# @package _global_
+defaults:
+  - override /model: segmentation/with_det/agg4_4toGAP_ConvNext_768to64_depth_notransformer_query
+  # - override /model: segmentation/agg4_4toGAP_ConvNext_768to64_depth
+  - override /data: original_nuscenes_half
+
+  - override /loss: depthloss_seg_det
+  # - override /loss: center_depthloss
+  - override /metrics: visibility_metrics
+
+
+experiment:
+  name: bbmulti1_detlr4e-4_query_320*800_decoder5_bev3OD_1/2half_agg8
+
+loader:
+  batch_size: 2       # mini batch size per 1 GPU
+  num_workers: 8
+  prefetch_factor: 8
+
+optimizer:
+  dual_lr: True
+  bb_keywords: ['pretrained_convnext', 'layer64', 'layergap']
+  
+  depth_keywords: ['depth_layers', 'reduce_depth', 'depth_pred']
+
+  seg_keywords: ['seg_layers', 'reduce_seg', 'seg_pred']
+
+  detection_keywords: ['det_head']
+
+  lr: 2e-4
+  bb_mult: 1
+  depth_lr: 1e-4
+  seg_lr: 1e-4
+  detection_lr: 2e-4
+
+# scheduler:
+#   name: onecycle
+#   div_factor: 10           # starts at lr / 10
+#   pct_start: 0.2           # reaches lr at 30% of total steps
+#   final_div_factor: 10     # ends at lr / 10 / 10
+#   total_steps: ${trainer.max_steps}
+#   cycle_momentum: False
+scheduler:
+  name: cosannealing
+  T_max:  ${trainer.max_steps}
+  eta_min: 2e-5
+
+trainer:
+  max_steps: 127000       # 61530 127000
+  gpus: 4
+  # num_sanity_val_steps: -1
+
+model:
+  outputs:
+    bev: [0, 1]
+    center: [1, 2]

@@ -8,7 +8,7 @@ version: 'v1.0-trainval'                # 'v1.0-mini' for debugging
 # dataset_dir: '/home/miruware/ws/Datasets/v1.0-trainval'
 # labels_dir: '/home/miruware/ws/cvt_labels_nuscenes_v2'
 dataset_dir: '/usr/src/nuscenes'
-labels_dir: '/usr/src/cvt_labels_nuscenes_v2'
+labels_dir: '/usr/src/nuscenes/labels_nuscenes_3od_10obj'
 
 # used to generate dataset
 cameras: [[0, 1, 2, 3, 4, 5]]
@@ -23,8 +23,8 @@ label_indices: [[0,1]]
 bev:
   h: 200
   w: 200
-  h_meters: 100.0
-  w_meters: 100.0
+  h_meters: 100
+  w_meters: 100
   offset: 0.0
 
 # input parameters (not used in label generation)
@@ -33,3 +33,7 @@ image:
   h: 224
   w: 480
   top_crop: 46
+# image:
+#   h: 448
+#   w: 800
+#   top_crop: 96

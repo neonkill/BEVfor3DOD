@@ -1,3 +1,0 @@
-iou:
-  _target_: bev_transformer.metrics.IoUMetric
-  label_indices: [[0, 1]]

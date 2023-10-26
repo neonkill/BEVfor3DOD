@@ -3,7 +3,7 @@
 # Released under the MIT license
 # https://github.com/bradyz/cross_view_transformers/blob/master/LICENSE
 # -----------------------------------------------------------------------
-# Modified by yelin2
+# Modified by neonkill
 # -----------------------------------------------------------------------
 
 
@@ -17,10 +17,13 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.cuda.amp.autocast_mode import autocast
 from model_module.model.detection.base_bev_depth import BaseBEVDepth
 from mmdet3d.core.bbox.structures.lidar_box3d import LiDARInstance3DBoxes
+# from mmdet3d.core.bbox.structures.box_3d_mode import Box3DMode
+from mmdet3d.core.bbox import get_box_type
 
 from model_module.torch_dist import all_gather_object, get_rank, synchronize
 from model_module.det_evaluators import DetNuscEvaluator
 from model_module.metrics import DepthMetrics
+from mmdet3d.core import bbox3d2result
 
  
 CLASSES = [
@@ -49,7 +52,8 @@ class ModelModule(pl.LightningModule):
         # self.batch_size_per_device = 4 #!
         # self.basic_lr_per_img = 2e-4 
         self.fullmodel = fullmodel
-        self.class_names = CLASSES 
+        self.class_names = CLASSES
+        self.box_type_3d, self.box_mode_3d = get_box_type('LiDAR')
 
         default_root_dir = './outputs/'
         mmcv.mkdir_or_exist(default_root_dir)
@@ -69,18 +73,23 @@ class ModelModule(pl.LightningModule):
     def training_step(self, batch):
         # (imgs, mats, _, _, gt_boxes, gt_labels, depth_labels) = batch
         det_preds, depth_preds = self(batch)
+        # gt_boxes = [LiDARInstance3DBoxes(
+        #             gt_box,
+        #             box_dim=len(gt_box[0]),
+        #             origin=(0.5, 0.5, 0.5)).convert_to(self.box_mode_3d) for gt_box in batch['gt_boxes']]
         gt_boxes = [gt_box.cuda() for gt_box in batch['gt_boxes']]
         gt_labels = [gt_label.cuda() for gt_label in batch['gt_labels']]
         depth_labels = batch['depths']
         
+        
 
         #* Get Targets & Detection Loss
         if isinstance(self.fullmodel, torch.nn.parallel.DistributedDataParallel): #! 지워도?
-            targets = self.fullmodel.module.get_targets(gt_boxes, gt_labels)
-            detection_loss = self.fullmodel.module.loss(targets, det_preds)
+            # targets = self.fullmodel.module.get_targets(det_preds['all_cls_scores'][-1], det_preds['all_bbox_preds'][-1], gt_boxes, gt_labels)
+            detection_loss = self.fullmodel.module.loss(gt_boxes,gt_labels, det_preds)
         else:
-            targets = self.fullmodel.get_targets(gt_boxes, gt_labels)
-            detection_loss = self.fullmodel.loss(targets, det_preds)
+            # targets = self.fullmodel.get_targets(det_preds['all_cls_scores'][-1], det_preds['all_bbox_preds'][-1], gt_boxes, gt_labels)
+            detection_loss = self.fullmodel.loss(gt_boxes,gt_labels, det_preds)
 
         #* Depth Loss
         if len(depth_labels.shape) == 5:
@@ -208,10 +217,14 @@ class ModelModule(pl.LightningModule):
             results = self.fullmodel.module.get_bboxes(preds, batch['img_metas'])
         else:
             results = self.fullmodel.get_bboxes(preds, batch['img_metas'])
-        for i in range(len(results)):
-            results[i][0] = results[i][0].detach().cpu().numpy()
-            results[i][1] = results[i][1].detach().cpu().numpy()
-            results[i][2] = results[i][2].detach().cpu().numpy()
+        bbox_results = [
+            bbox3d2result(bboxes, scores, labels)
+            for bboxes, scores, labels in results
+        ]
+        for i in range(len(bbox_results)):
+            results[i][0] = bbox_results[i]['boxes_3d']
+            results[i][1] = bbox_results[i]['scores_3d']
+            results[i][2] = bbox_results[i]['labels_3d']
             results[i].append(batch['img_metas'][i])
         return results
 
@@ -231,6 +244,32 @@ class ModelModule(pl.LightningModule):
                             [])[:data_length]
         if get_rank() == 0:
             self.evaluator.evaluate(lm=self,  results=all_pred_results, img_metas=all_img_metas, logger=self.logger)
+
+    # def get_metrics(self, step_outputs, data_length):
+    #     all_pred_results = list()
+    #     all_img_metas = list()
+    #     # all_img_lidar_calibrated_sensors = list()
+    #     # all_img_cam_translation = list()
+    #     for step_output  in step_outputs:
+    #         for i in range(len(step_output)):   
+    #             all_pred_results.append(step_output[i][:3])
+    #             all_img_metas.append(step_output[i][3])
+    #             # all_img_lidar_calibrated_sensors.append(step_output[i][4])
+    #             # all_img_cam_translation.append(step_output[i][5])
+    #     synchronize() 
+    #     print('data_length',data_length)
+    #     all_pred_results = sum(
+    #         map(list, zip(*all_gather_object(all_pred_results))),
+    #         [])[:data_length]
+    #     all_img_metas = sum(map(list, zip(*all_gather_object(all_img_metas))),
+    #                         [])[:data_length]
+    #     # all_img_lidar_calibrated_sensors = sum(map(list, zip(*all_gather_object(all_img_lidar_calibrated_sensors))),
+    #     #                     [])[:data_length]
+    #     # all_img_cam_translation = sum(map(list, zip(*all_gather_object(all_img_cam_translation))),
+    #     #                     [])[:data_length]
+    #     if get_rank() == 0:
+    #         self.evaluator.evaluate(lm=self, results=all_pred_results, img_metas=all_img_metas, logger=self.logger)
+    #         # self.evaluator.evaluate(lm=self, results=all_pred_results, img_metas=all_img_metas, lidar_calibrated = all_img_lidar_calibrated_sensors, logger=self.logger)
 
     @staticmethod
     def add_model_specific_args(parent_parser):  # pragma: no-cover

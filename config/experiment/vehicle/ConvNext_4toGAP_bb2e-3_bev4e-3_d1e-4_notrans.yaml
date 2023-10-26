@@ -1,0 +1,48 @@
+# @package _global_
+defaults:
+  - override /model: segmentation/with_det/agg4_4toGAP_ConvNext_768to64_depth_trans
+  # - override /model: segmentation/agg4_4toGAP_ConvNext_768to64_depth
+  - override /data: original_nuscenes
+
+  - override /loss: center_depthloss_with_det
+  # - override /loss: center_depthloss
+  - override /metrics: visibility_metrics
+
+
+experiment:
+  name: ConvNext_4toGAP_bb2e-3_bev4e-3_d1e-4
+
+loader:
+  batch_size: 4       # mini batch size per 1 GPU
+  num_workers: 8
+  prefetch_factor: 8
+
+optimizer:
+  dual_lr: True
+  bb_keywords: ['pretrained_convnext', 'layer64', 'layergap']
+  
+  depth_keywords: ['depth_layers', 'reduce_depth', 'depth_pred']
+
+  detection_keywords: ['bev_embed', 'cls_branch', 'reg_branch']
+
+  lr: 2e-3
+  bb_mult: 2
+  depth_lr: 1e-4
+  detection_lr: 2e-3
+
+scheduler:
+  name: onecycle
+  div_factor: 10           # starts at lr / 10
+  pct_start: 0.3           # reaches lr at 30% of total steps
+  final_div_factor: 10     # ends at lr / 10 / 10
+  total_steps: ${trainer.max_steps}
+  cycle_momentum: False
+
+trainer:
+  max_steps: 61530       # 61530
+  gpus: 4
+
+model:
+  outputs:
+    bev: [0, 1]
+    center: [1, 2]
